@@ -1,0 +1,15 @@
+{
+  "name": "disaster-prep-hub",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Client-side disaster preparedness hub with 3D globe, hazard data, and survival simulators.",
+  "scripts": {
+    "serve": "http-server -p 8000 -c-1 .",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "eslint": "^9.13.0",
+    "globals": "^15.11.0",
+    "http-server": "^14.1.1"
+  }
+}

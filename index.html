@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <meta name="theme-color" content="#0B0F19" />
+  <meta name="description"
+    content="Disaster Prep Hub — explore 14 global hazard types, historical events, action plans, and interactive survival simulators on a 3D globe." />
+  <title>Disaster Prep Hub</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+  <a href="#loginGate" class="skip-link">Skip to main content</a>
+
+  <!-- Login Gate (full-screen, blocks app on first load) -->
+  <div id="loginGate" class="login-gate" role="dialog" aria-modal="true" aria-labelledby="gateTitle" aria-describedby="gateSub">
+    <div class="gate-bg" data-login-ambient aria-hidden="true"></div>
+    <div class="gate-card">
+      <div class="gate-overview">
+        <div class="gate-brand">
+          <span class="gate-logo-mark" aria-hidden="true"></span>
+          <div>
+            <div class="gate-logo-text">DISASTER PREP HUB</div>
+            <div class="gate-version">v2.0 · Global Hazard Intelligence</div>
+          </div>
+        </div>
+        <div class="gate-kicker"><span class="status-pulse"></span> GLOBAL SITUATIONAL AWARENESS</div>
+        <h1 id="gateTitle">Know what is coming.</h1>
+        <p class="gate-lead">Explore the world's hazard picture, understand local exposure, and move from alert to action.</p>
+        <div class="gate-signal-grid" aria-label="Platform capabilities">
+          <div><strong>14</strong><span>hazard types</span></div>
+          <div><strong>50+</strong><span>historical events</span></div>
+          <div><strong>06</strong><span>decision simulators</span></div>
+        </div>
+        <div class="gate-command-line"><span class="command-dot"></span><span>LIVE GLOBE NETWORK</span><b>READY</b></div>
+
+        <div class="gate-ticker" data-login-ticker aria-live="polite" aria-atomic="true">
+          <span class="lt-dot" aria-hidden="true"></span>
+          <div class="lt-body">
+            <span class="lt-value">—</span>
+            <span class="lt-label">Loading intel…</span>
+          </div>
+          <span class="lt-tag" aria-hidden="true">LIVE</span>
+        </div>
+
+        <div class="gate-how">
+          <h2 class="gate-how-title">How it works</h2>
+          <ol class="gate-how-steps">
+            <li>
+              <span class="ghow-num" aria-hidden="true">01</span>
+              <div>
+                <strong>Explore the globe</strong>
+                <span>Pan a 3D world map, tap a country, and surface the hazards it faces.</span>
+              </div>
+            </li>
+            <li>
+              <span class="ghow-num" aria-hidden="true">02</span>
+              <div>
+                <strong>Drill into simulators</strong>
+                <span>Step through six decision scenarios: floods, quakes, fire, wind, surge, blackout.</span>
+              </div>
+            </li>
+            <li>
+              <span class="ghow-num" aria-hidden="true">03</span>
+              <div>
+                <strong>Prepare the kit</strong>
+                <span>Build a go-bag checklist, save action plans, and pin your local contacts.</span>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="gate-access">
+        <div class="gate-access-head">
+          <span class="gate-access-label">LOCAL ACCESS</span>
+          <span class="gate-access-lock">DEVICE ONLY</span>
+        </div>
+        <p id="gateSub" class="muted">Create a local profile to save your progress. No account or network login required.</p>
+        <form id="gateForm" autocomplete="off" novalidate>
+          <label for="gateUser" class="sr-only">Profile name</label>
+          <div class="gate-input-wrap">
+            <span class="gate-input-icon" aria-hidden="true">👤</span>
+            <input id="gateUser" placeholder="Profile name" autocomplete="off" required />
+          </div>
+          <label for="gatePass" class="sr-only">Local PIN</label>
+          <div class="gate-input-wrap">
+            <span class="gate-input-icon" aria-hidden="true">🔒</span>
+            <input id="gatePass" type="password" placeholder="Local PIN (any value)" autocomplete="off" required />
+          </div>
+          <div id="gateError" class="error-msg" role="alert"></div>
+          <button type="submit" class="btn-primary gate-submit">Save Profile &amp; Enter</button>
+          <button type="button" id="gateGuest" class="btn-ghost gate-guest">Continue as Guest</button>
+        </form>
+
+        <div class="gate-saved" id="gateSaved" aria-label="Saved profiles">
+          <div class="gate-saved-head">
+            <span>Saved Profiles</span>
+            <span id="gateSavedCount" class="gate-saved-count">0</span>
+          </div>
+          <div id="gateSavedList" class="gate-saved-list"></div>
+        </div>
+
+        <div class="gate-footer">
+          <span>Private by default · personalization stays on this device</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top HUD Bar -->
+  <header class="hud-bar">
+    <div class="hud-left">
+      <div class="logo">
+        <span class="logo-mark" aria-hidden="true"></span>
+        <span class="logo-text">DISASTER PREP HUB</span>
+      </div>
+      <nav class="module-toggles" aria-label="Main sections">
+        <button class="mod-toggle active" data-mod="globe" aria-pressed="true">Globe View</button>
+        <button class="mod-toggle" data-mod="hazards" aria-pressed="false">All 14 Hazards</button>
+        <button class="mod-toggle" data-mod="simulators" aria-pressed="false">Simulators</button>
+        <button class="mod-toggle" data-mod="emergency" aria-pressed="false">Emergency Hub</button>
+      </nav>
+    </div>
+    <div class="hud-center">
+      <div class="search-wrap">
+        <label for="globalSearch" class="sr-only">Search country or hazard</label>
+        <input id="globalSearch" placeholder="Search country or hazard..." autocomplete="off" role="combobox"
+          aria-expanded="false" aria-controls="searchResults" aria-autocomplete="list" />
+        <div id="searchResults" class="search-results hidden" role="listbox" aria-live="polite"></div>
+      </div>
+    </div>
+    <div class="hud-right">
+      <button id="authStatus" class="auth-badge guest" aria-haspopup="dialog">
+        <span class="dot" aria-hidden="true"></span><span>Guest</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Globe Stage -->
+  <main class="stage">
+    <div id="globeCanvas" role="region"
+      aria-label="Interactive world map showing global disaster hotspots. Drag to pan, scroll to zoom, click a marker to explore.">
+    </div>
+    <div class="stage-hud-top">
+      <div class="coord-readout" aria-hidden="true">
+        <span>LAT <b id="latRead">0.00</b></span>
+        <span>LON <b id="lonRead">0.00</b></span>
+        <span>ALT <b id="altRead">3.00</b></span>
+      </div>
+      <div class="globe-ctrls">
+        <button id="btnZoomIn" aria-label="Zoom in">+</button>
+        <button id="btnZoomOut" aria-label="Zoom out">−</button>
+        <button id="btnAutoSpin" aria-label="Toggle auto rotate" aria-pressed="false">🌐 Spin</button>
+      </div>
+    </div>
+    <section class="mission-rail" aria-label="Global overview">
+      <div class="mission-rail-head"><span class="status-pulse"></span><span>GLOBAL OVERVIEW</span><b>LIVE</b></div>
+      <h1>Read the risk.<br><em>Plan the response.</em></h1>
+      <p>Explore featured disaster events across 13 regions and open a marker for its action plan.</p>
+      <div class="mission-stats">
+        <span><strong>13</strong> FEATURED SITES</span>
+        <span><strong>14</strong> HAZARD TYPES</span>
+      </div>
+      <div class="mission-hint"><span>01</span> Select a marker to begin analysis</div>
+    </section>
+    <div id="tacticalDim" class="tactical-dim" aria-hidden="true"></div>
+    <div id="hazardAnimPanel" class="hazard-anim-panel hidden" role="dialog" aria-modal="true" aria-labelledby="hapTitle" aria-describedby="hapSub">
+      <div class="hap-header">
+        <div>
+          <div class="hap-title" id="hapTitle">Hazard</div>
+          <div class="hap-sub" id="hapSub">Region</div>
+        </div>
+        <div class="hap-controls">
+          <button id="hapPlay" aria-label="Play or pause animation" aria-pressed="true">⏸</button>
+          <button id="hapStep" aria-label="Step animation forward">⏭</button>
+          <button id="hapClose" aria-label="Close hazard panel">✕</button>
+        </div>
+      </div>
+      <div class="hap-visual-wrap">
+        <div class="hap-visual-label"><span class="status-pulse"></span> EVENT SIMULATION</div>
+        <canvas id="animCanvas" role="img" aria-label="Animated illustration of the hazard event"></canvas>
+      </div>
+      <div class="hap-slider">
+        <label for="intensitySlider">Intensity</label>
+        <input id="intensitySlider" type="range" min="0" max="100" value="60" aria-valuemin="0" aria-valuemax="100"
+          aria-valuenow="60" />
+        <span id="intensityVal">60</span>
+      </div>
+      <div class="hap-step-btns" id="stepBtns" role="group" aria-label="Action plan phase"></div>
+    </div>
+  </main>
+
+  <!-- Right Drawer -->
+  <aside id="sideDrawer" class="side-drawer" aria-label="Hazard details drawer">
+    <div class="drawer-handle">
+      <button id="drawerToggle" aria-label="Collapse drawer" aria-expanded="true">›</button>
+    </div>
+    <div class="drawer-content" id="drawerContent">
+      <div class="welcome">
+        <h2>Welcome</h2>
+        <p>Pick a hazard marker on the globe, or click a hotspot to zoom in and analyze it.</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- (legacy #loginModal removed — replaced by full-screen #loginGate above) -->
+
+  <!-- Emergency Hub Modal -->
+  <div id="emergencyModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="emergencyTitle">
+    <div class="modal-card wide">
+      <h2 id="emergencyTitle">Emergency Hub</h2>
+      <div class="emergency-grid">
+        <div class="em-block">
+          <h3>Global Hotlines</h3>
+          <ul>
+            <li><b>112</b> — International Emergency</li>
+            <li><b>911</b> — North America</li>
+            <li><b>119</b> — Japan Fire/Ambulance</li>
+            <li><b>999</b> — UK Emergency</li>
+            <li><b>120</b> — China Medical</li>
+            <li><b>000</b> — Australia</li>
+          </ul>
+        </div>
+        <div class="em-block">
+          <div class="sos-header">
+            <h3>Region SOS</h3>
+            <label for="sosCountrySelect" class="sr-only">Select country for SOS contacts</label>
+            <select id="sosCountrySelect" class="sos-select"></select>
+          </div>
+          <div id="regionSOS">
+          </div>
+        </div>
+        <div class="em-block full">
+          <h3>Personal Status</h3>
+          <button id="markSafe" class="btn-safe">Mark Myself Safe</button>
+          <div id="safeStatus" class="safe-status" aria-live="polite"></div>
+        </div>
+      </div>
+      <button id="emergencyClose" class="btn-ghost">Close</button>
+    </div>
+  </div>
+
+  <!-- Simulators Modal -->
+  <div id="simulatorModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="simTitle">
+    <div class="modal-card wide">
+      <h2 id="simTitle">Disaster Simulators</h2>
+      <p class="muted">Pick a scenario. Step through survival choices.</p>
+      <div id="simList" class="sim-list"></div>
+      <div id="simRun" class="sim-run hidden" aria-live="polite"></div>
+      <button id="simClose" class="btn-ghost">Close</button>
+    </div>
+  </div>
+
+  <!-- Simulation Control Window -->
+  <div id="simWindow" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="swTitle">
+    <div class="modal-card sw-card">
+      <div class="sw-header">
+        <div>
+          <h2 id="swTitle">🌊 Hazard</h2>
+          <p class="muted" id="swSub"></p>
+        </div>
+        <button id="swClose" class="sw-x" aria-label="Close simulation window">✕</button>
+      </div>
+
+      <canvas id="swCanvas" aria-label="Hazard simulation preview"></canvas>
+
+      <div class="sw-damage-bar">
+        <span id="swBadge" class="sw-badge">MODERATE</span>
+        <span id="swDesc"></span>
+      </div>
+
+      <div class="sw-controls">
+        <div class="sw-row">
+          <label for="swIntensity">⚡ Intensity</label>
+          <input type="range" id="swIntensity" min="10" max="100" value="55" />
+          <b id="swIntensityVal">55%</b>
+        </div>
+        <div class="sw-row">
+          <label for="swSpeed">⏩ Speed</label>
+          <select id="swSpeed">
+            <option value="0.5">🐢 Slow (0.5x)</option>
+            <option value="1" selected>▶ Normal (1x)</option>
+            <option value="2">⏩ Fast (2x)</option>
+          </select>
+        </div>
+        <div class="sw-row">
+          <label>💥 Damage Level</label>
+          <div class="sw-levels" role="group" aria-label="Damage level">
+            <button class="lv-btn" data-lv="1" type="button">Mild</button>
+            <button class="lv-btn active" data-lv="2" type="button">Moderate</button>
+            <button class="lv-btn" data-lv="3" type="button">Severe</button>
+            <button class="lv-btn" data-lv="4" type="button">Catastrophic</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="sw-footer">
+        <button id="swRestart" class="btn-ghost" type="button">↻ Restart</button>
+        <button id="swPause" class="btn-ghost" type="button">⏸ Pause</button>
+        <button id="swStep" class="btn-ghost" type="button">⏭ Step</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+  <script src="data.js"></script>
+  <script src="globe.js"></script>
+  <script src="login-ui.js"></script>
+  <script src="animations.js"></script>
+  <script src="simWindow.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>

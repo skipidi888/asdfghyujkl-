@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earthquake Physics Simulator - Realistic 3D Buildings</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b0f19;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+        .font-tech {
+            font-family: 'Chakra Petch', sans-serif;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.78);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+        }
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #f97316;
+            cursor: pointer;
+            margin-top: -7px;
+            box-shadow: 0 0 12px rgba(249, 115, 22, 0.8);
+            transition: transform 0.1s ease, background-color 0.2s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #ef4444;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="relative">
+
+    <canvas id="sim-canvas"></canvas>
+
+    <!-- TOP LEFT: Primary Simulation Controls Panel -->
+    <div id="ui-container" class="absolute top-4 left-4 z-20 w-80 glass-panel p-5 rounded-2xl text-white max-h-[95vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-1">
+            <div class="flex items-center gap-2">
+                <span class="relative flex h-3 w-3">
+                  <span id="pulse-dot" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                  <span class="relative inline-flex rounded-full h-3 w-3 bg-orange-500"></span>
+                </span>
+                <h1 class="text-xl font-bold font-tech text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-500 to-amber-300 tracking-wider">
+                    QUAKE MASTER 3D
+                </h1>
+            </div>
+            <button id="btn-audio" class="p-2 bg-slate-800/80 hover:bg-slate-700 rounded-lg text-slate-300 hover:text-white transition" title="Toggle Sound Engine">
+                <svg id="audio-icon-off" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.707 12 4.414 12 5.414v13.172c0 1.000-1.077 1.707-1.707 1.077L5.586 15z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+                <svg id="audio-icon-on" class="w-4 h-4 hidden text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.707 12 4.414 12 5.414v13.172c0 1.000-1.077 1.707-1.707 1.077L5.586 15z"></path></svg>
+            </button>
+        </div>
+        <p class="text-[11px] text-slate-400 mb-4 font-tech tracking-wide border-b border-slate-700/80 pb-2">REALISTIC 3D ARCHITECTURAL MODEL SIMULATOR</p>
+
+        <!-- Magnitude Slider -->
+        <div class="mb-5 bg-slate-900/50 p-3 rounded-xl border border-slate-800">
+            <div class="flex justify-between items-center mb-1">
+                <label class="text-xs font-semibold text-slate-300 uppercase tracking-wider font-tech">RICHTER MAGNITUDE</label>
+                <span id="intensity-display" class="text-xl font-bold font-tech text-orange-400">5.5 M</span>
+            </div>
+            
+            <input type="range" id="intensity-slider" min="1.0" max="10.0" step="0.1" value="5.5">
+            
+            <div class="flex justify-between text-[10px] font-bold tracking-wider uppercase mt-2 text-slate-400 font-tech">
+                <span class="text-emerald-400">Minor</span>
+                <span class="text-yellow-400">Moderate</span>
+                <span class="text-orange-400">Severe</span>
+                <span class="text-red-500 animate-pulse">Cataclysmic</span>
+            </div>
+        </div>
+
+        <!-- Settings Grid -->
+        <div class="space-y-3 mb-5 text-xs font-tech">
+            <div class="flex items-center justify-between bg-slate-900/40 p-2 rounded-lg border border-slate-800">
+                <span class="text-slate-300">BUILDING MATERIAL</span>
+                <select id="material-select" class="bg-slate-800 text-orange-300 font-bold rounded px-2 py-1 border border-slate-700 outline-none cursor-pointer hover:bg-slate-700 transition text-[11px]">
+                    <option value="wood">Wood (Flexible)</option>
+                    <option value="concrete" selected>Concrete (Standard)</option>
+                    <option value="steel">Reinforced Steel</option>
+                </select>
+            </div>
+            <div class="flex items-center justify-between bg-slate-900/40 p-2 rounded-lg border border-slate-800">
+                <span class="text-slate-300">SEISMIC WAVE</span>
+                <select id="wave-select" class="bg-slate-800 text-orange-300 font-bold rounded px-2 py-1 border border-slate-700 outline-none cursor-pointer hover:bg-slate-700 transition text-[11px]">
+                    <option value="both" selected>Combined (S + P)</option>
+                    <option value="horizontal">S-Wave (Transverse)</option>
+                    <option value="vertical">P-Wave (Compressional)</option>
+                </select>
+            </div>
+            <div class="flex items-center justify-between bg-slate-900/40 p-2 rounded-lg border border-slate-800">
+                <span class="text-slate-300">ENVIRONMENT</span>
+                <select id="time-select" class="bg-slate-800 text-orange-300 font-bold rounded px-2 py-1 border border-slate-700 outline-none cursor-pointer hover:bg-slate-700 transition text-[11px]">
+                    <option value="night" selected>Cyber Night</option>
+                    <option value="day">Clear Day</option>
+                    <option value="sunset">Crimson Sunset</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Action Trigger Buttons -->
+        <div class="flex flex-col gap-2 font-tech">
+            <button id="btn-quake" class="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-[1.01] active:scale-95 shadow-[0_0_20px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2 tracking-wider text-sm">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                TRIGGER SEISMIC EVENT
+            </button>
+            <div class="grid grid-cols-2 gap-2">
+                <button id="btn-reset" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-3 rounded-xl transition active:scale-95 border border-slate-700 flex items-center justify-center gap-1.5 text-xs">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Rebuild
+                </button>
+                <button id="btn-slowmo" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-3 rounded-xl transition active:scale-95 border border-slate-700 flex items-center justify-center gap-1.5 text-xs">
+                    <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span id="slowmo-text">Slow Motion</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOP RIGHT: Seismograph & Stats Dashboard -->
+    <div id="stats-panel" class="absolute top-4 right-4 z-20 w-80 glass-panel p-4 rounded-2xl text-white font-tech pointer-events-none sm:pointer-events-auto hidden sm:block">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-bold text-slate-300 tracking-widest uppercase flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                SEISMOGRAPH MONITOR
+            </span>
+            <span id="pga-display" class="text-xs font-mono text-cyan-400">0.00 g</span>
+        </div>
+
+        <div class="bg-black/60 rounded-lg p-1 border border-slate-800 mb-3 relative overflow-hidden">
+            <canvas id="seismo-canvas" class="w-full h-20 block"></canvas>
+            <div class="absolute top-1 left-2 text-[9px] text-emerald-500/70 font-mono">CH1: SEISMIC VIBRATION (Hz)</div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-center text-xs">
+            <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                <div class="text-[10px] text-slate-400">CITY DESTRUCTION</div>
+                <div id="damage-percent" class="text-lg font-bold text-emerald-400">0%</div>
+            </div>
+            <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                <div class="text-[10px] text-slate-400">CIVILIAN SAFETY</div>
+                <div id="civilians-status" class="text-lg font-bold text-cyan-400">100% SAFE</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM CENTER: Architecture Preset Selector -->
+    <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-20 glass-panel px-4 py-2.5 rounded-full text-white font-tech flex items-center gap-2 max-w-[90vw] overflow-x-auto">
+        <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline mr-2">PRESETS:</span>
+        <button data-preset="city" class="preset-btn bg-orange-600/80 hover:bg-orange-500 text-white text-xs px-3 py-1.5 rounded-full transition shadow font-medium whitespace-nowrap">
+            🏢 Standard City
+        </button>
+        <button data-preset="highrise" class="preset-btn bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs px-3 py-1.5 rounded-full transition font-medium whitespace-nowrap">
+            🏙️ Megacity Highrises
+        </button>
+        <button data-preset="damper" class="preset-btn bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs px-3 py-1.5 rounded-full transition font-medium whitespace-nowrap">
+            🏗️ Tuned Mass Damper Tower
+        </button>
+        <button data-preset="bridge" class="preset-btn bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs px-3 py-1.5 rounded-full transition font-medium whitespace-nowrap">
+            🌉 Suspension Bridge
+        </button>
+    </div>
+
+    <script>
+        class EarthquakeAudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.gainNode = null;
+                this.filterNode = null;
+                this.isEnabled = false;
+            }
+
+            init() {
+                if (this.ctx) return;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+
+                const bufferSize = this.ctx.sampleRate * 2;
+                const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                let lastOut = 0.0;
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    output[i] = (lastOut + (0.02 * white)) / 1.02;
+                    lastOut = output[i];
+                    output[i] *= 3.5;
+                }
+
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = noiseBuffer;
+                noise.loop = true;
+
+                this.filterNode = this.ctx.createBiquadFilter();
+                this.filterNode.type = 'lowpass';
+                this.filterNode.frequency.setValueAtTime(60, this.ctx.currentTime);
+
+                this.gainNode = this.ctx.createGain();
+                this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+
+                noise.connect(this.filterNode);
+                this.filterNode.connect(this.gainNode);
+                this.gainNode.connect(this.ctx.destination);
+                noise.start();
+            }
+
+            setRumble(intensity, isQuaking) {
+                if (!this.ctx || !this.isEnabled) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                if (isQuaking) {
+                    const targetGain = Math.min(1.0, (intensity / 10) * 0.8);
+                    const targetFreq = 40 + (intensity * 18);
+                    this.gainNode.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.1);
+                    this.filterNode.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.1);
+                } else {
+                    this.gainNode.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2);
+                }
+            }
+
+            playCrashSound(volume = 0.2) {
+                if (!this.ctx || !this.isEnabled) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(120 + Math.random() * 80, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.3);
+
+                    gain.gain.setValueAtTime(volume, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.3);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.3);
+                } catch(e){}
+            }
+        }
+
+        const audioEngine = new EarthquakeAudioEngine();
+    </script>
+
+    <script>
+        const { Engine, Render, Runner, Composites, Common, MouseConstraint, Mouse, Composite, Bodies, Body, Vector, Constraint, Events } = Matter;
+
+        const canvas = document.getElementById('sim-canvas');
+        const engine = Engine.create();
+        const world = engine.world;
+
+        const render = Render.create({
+            canvas: canvas,
+            engine: engine,
+            options: {
+                width: window.innerWidth,
+                height: window.innerHeight,
+                wireframes: false,
+                background: 'transparent'
+            }
+        });
+
+        Render.run(render);
+        const runner = Runner.create();
+        Runner.run(runner, engine);
+
+        let isQuaking = false;
+        let quakeTime = 0;
+        let isSlowMo = false;
+        let currentPreset = 'city';
+        let initialBlockCount = 0;
+        let initialPeopleCount = 0;
+
+        let buildingBlocks = [];
+        let people = [];
+        let streetLights = [];
+        let lightConstraints = [];
+        let particles = [];
+        let groundBody = null;
+        let damperConstraint = null;
+
+        const themes = {
+            night: { bg: '#0b0f19', ground: '#1e293b' },
+            day: { bg: '#38bdf8', ground: '#4ade80' },
+            sunset: { bg: '#4c1d95', ground: '#331832' }
+        };
+        let currentTheme = themes.night;
+
+        class Particle {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.vx = (Math.random() - 0.5) * (type === 'spark' ? 6 : 3);
+                this.vy = type === 'spark' ? (Math.random() - 0.7) * 5 : -Math.random() * 2 - 0.5;
+                this.size = type === 'dust' ? Math.random() * 8 + 4 : (type === 'spark' ? Math.random() * 3 + 1 : Math.random() * 12 + 6);
+                this.life = 1.0;
+                this.decay = Math.random() * 0.03 + 0.015;
+                this.color = type === 'spark' ? '#fde047' : (type === 'smoke' ? 'rgba(71, 85, 105, 0.5)' : 'rgba(203, 213, 225, 0.4)');
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+                if (this.type === 'dust' || this.type === 'smoke') this.size += 0.2;
+            }
+
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, this.life);
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        function createDustCloud(x, y, count = 5) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, 'dust'));
+            }
+        }
+
+        function createSparks(x, y, count = 8) {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, 'spark'));
+            }
+        }
+
+        function drawRealisticBuildingBlock(ctx, b) {
+            ctx.save();
+            ctx.translate(b.position.x, b.position.y);
+            ctx.rotate(b.angle);
+
+            const w = b.bounds.max.x - b.bounds.min.x;
+            const h = b.bounds.max.y - b.bounds.min.y;
+
+            // Main 3D structural block body with gradient highlight
+            ctx.fillStyle = b.render.fillStyle;
+            ctx.fillRect(-w / 2, -h / 2, w, h);
+
+            // 3D Bevel / Depth Effect (Top & Left light reflection)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            ctx.fillRect(-w / 2, -h / 2, w, 3);
+            ctx.fillRect(-w / 2, -h / 2, 3, h);
+
+            // 3D Shadow Effect (Bottom & Right)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+            ctx.fillRect(-w / 2, h / 2 - 3, w, 3);
+            ctx.fillRect(w / 2 - 3, -h / 2, 3, h);
+
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(-w / 2, -h / 2, w, h);
+
+            // Detailed Facade Elements
+            if (b.blockType === 'concrete_wall' || b.blockType === 'steel_beam') {
+                ctx.fillStyle = b.isWindowLit ? '#fef08a' : '#0f172a';
+                const windowWidth = 7;
+                const windowHeight = 10;
+                
+                // Draw 2 symmetrical illuminated windows per block
+                ctx.fillRect(-windowWidth - 3, -windowHeight / 2, windowWidth, windowHeight);
+                ctx.fillRect(3, -windowHeight / 2, windowWidth, windowHeight);
+
+                // Window frames
+                ctx.strokeStyle = '#334155';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(-windowWidth - 3, -windowHeight / 2, windowWidth, windowHeight);
+                ctx.strokeRect(3, -windowHeight / 2, windowWidth, windowHeight);
+            } else if (b.blockType === 'roof_top') {
+                // Rooftop HVAC unit & antenna mast
+                ctx.fillStyle = '#475569';
+                ctx.fillRect(-w * 0.25, -h * 0.4, w * 0.5, h * 0.5);
+                ctx.strokeStyle = '#0f172a';
+                ctx.strokeRect(-w * 0.25, -h * 0.4, w * 0.5, h * 0.5);
+
+                // Antenna
+                ctx.strokeStyle = '#94a3b8';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, -h * 0.4);
+                ctx.lineTo(0, -h * 0.9);
+                ctx.stroke();
+            } else if (b.blockType === 'wood_beam') {
+                ctx.strokeStyle = '#78350f';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(-w / 2 + 4, 0);
+                ctx.lineTo(w / 2 - 4, 0);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function buildSimulation(preset = 'city') {
+            Composite.clear(world);
+            Engine.clear(engine);
+
+            buildingBlocks = [];
+            people = [];
+            streetLights = [];
+            lightConstraints = [];
+            particles = [];
+            damperConstraint = null;
+
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            const matType = document.getElementById('material-select').value;
+            let density = 0.005, friction = 0.8, restitution = 0.1;
+            let blockColors = ['#64748b', '#475569', '#334155', '#94a3b8'];
+
+            if (matType === 'wood') {
+                density = 0.0015; friction = 0.6; restitution = 0.3;
+                blockColors = ['#b45309', '#d97706', '#92400e', '#78350f'];
+            } else if (matType === 'steel') {
+                density = 0.012; friction = 0.9; restitution = 0.05;
+                blockColors = ['#1e293b', '#334155', '#0f172a', '#475569'];
+            }
+
+            const groundHeight = 80;
+            groundBody = Bodies.rectangle(width / 2, height - (groundHeight / 2), width * 3, groundHeight, {
+                isStatic: true,
+                friction: 1.0,
+                render: { fillStyle: currentTheme.ground }
+            });
+            Composite.add(world, groundBody);
+
+            const groundTop = height - groundHeight;
+
+            if (preset === 'city' || preset === 'highrise') {
+                let currentX = width * 0.05;
+                const endX = width * 0.95;
+
+                while (currentX < endX) {
+                    const isBuilding = Math.random() > 0.2;
+                    if (isBuilding) {
+                        const cols = preset === 'highrise' ? Math.floor(Math.random() * 2) + 3 : Math.floor(Math.random() * 2) + 2;
+                        const rows = preset === 'highrise' ? Math.floor(Math.random() * 6) + 11 : Math.floor(Math.random() * 4) + 7;
+                        const blockSize = preset === 'highrise' ? 32 : 36;
+                        const color = Common.choose(blockColors);
+
+                        const bWidth = cols * blockSize;
+                        if (currentX + bWidth > endX) break;
+
+                        const stack = Composites.stack(
+                            currentX, groundTop - (rows * blockSize),
+                            cols, rows, 0, 0,
+                            (x, y, col, row) => {
+                                const isRoof = (row === 0);
+                                const b = Bodies.rectangle(x, y, blockSize, blockSize, {
+                                    friction: friction,
+                                    restitution: restitution,
+                                    density: density,
+                                    render: { fillStyle: color, visible: false } // Custom render handled in afterRender
+                                });
+                                b.blockType = isRoof ? 'roof_top' : (matType === 'wood' ? 'wood_beam' : 'concrete_wall');
+                                b.isWindowLit = Math.random() > 0.25;
+                                buildingBlocks.push(b);
+                                return b;
+                            }
+                        );
+                        Composite.add(world, stack);
+                        currentX += bWidth + 28;
+                    } else {
+                        const roadWidth = 120 + Math.random() * 40;
+                        const roadCenter = currentX + (roadWidth / 2);
+
+                        const poleH = 90;
+                        const pole = Bodies.rectangle(roadCenter, groundTop - (poleH / 2), 6, poleH, {
+                            density: 0.002, friction: 0.8, render: { fillStyle: '#475569' }
+                        });
+                        const bulb = Bodies.circle(roadCenter, groundTop - poleH, 8, {
+                            density: 0.001, render: { fillStyle: '#fef08a' }
+                        });
+                        const weld = Constraint.create({
+                            bodyA: pole, bodyB: bulb, pointA: { x: 0, y: -poleH / 2 }, stiffness: 1, length: 0, render: { visible: false }
+                        });
+                        const hinge = Constraint.create({
+                            bodyA: groundBody, bodyB: pole,
+                            pointA: { x: roadCenter - groundBody.position.x, y: (groundTop - groundBody.position.y) },
+                            pointB: { x: 0, y: poleH / 2 }, stiffness: 0.85, render: { visible: false }
+                        });
+                        Composite.add(world, [pole, bulb, weld, hinge]);
+                        lightConstraints.push(hinge);
+                        streetLights.push({ pole, bulb });
+
+                        const pCount = Math.floor(Math.random() * 3) + 2;
+                        for (let p = 0; p < pCount; p++) {
+                            const person = Bodies.circle(currentX + 15 + Math.random() * (roadWidth - 30), groundTop - 12, 6, {
+                                restitution: 0.1, friction: 0.9, density: 0.003,
+                                render: { fillStyle: Common.choose(['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#a855f7']) }
+                            });
+                            people.push(person);
+                            Composite.add(world, person);
+                        }
+
+                        currentX += roadWidth;
+                    }
+                }
+            } else if (preset === 'damper') {
+                const centerX = width / 2;
+                const cols = 4;
+                const rows = 16;
+                const blockSize = 34;
+                const color = '#475569';
+
+                const stack = Composites.stack(
+                    centerX - (cols * blockSize / 2), groundTop - (rows * blockSize),
+                    cols, rows, 0, 0,
+                    (x, y, col, row) => {
+                        const isRoof = (row === 0);
+                        const b = Bodies.rectangle(x, y, blockSize, blockSize, {
+                            friction: 0.9, restitution: 0.05, density: density,
+                            render: { visible: false }
+                        });
+                        b.blockType = isRoof ? 'roof_top' : 'concrete_wall';
+                        b.isWindowLit = true;
+                        buildingBlocks.push(b);
+                        return b;
+                    }
+                );
+                Composite.add(world, stack);
+
+                const topBlock = stack.bodies[cols * 2];
+                const pendulumBall = Bodies.circle(centerX, groundTop - (rows * blockSize) + 120, 26, {
+                    density: 0.09,
+                    render: { fillStyle: '#ef4444', strokeStyle: '#fce7f3', lineWidth: 3 }
+                });
+                damperConstraint = Constraint.create({
+                    bodyA: topBlock,
+                    bodyB: pendulumBall,
+                    stiffness: 0.9,
+                    damping: 0.1,
+                    render: { strokeStyle: '#ef4444', lineWidth: 4, visible: true }
+                });
+                Composite.add(world, [pendulumBall, damperConstraint]);
+
+            } else if (preset === 'bridge') {
+                const bridgeY = groundTop - 130;
+                const bridgeSegments = 24;
+                const segWidth = Math.min(width * 0.7, 900) / bridgeSegments;
+
+                const bridgeStack = Composites.stack(
+                    (width / 2) - (bridgeSegments * segWidth / 2), bridgeY,
+                    bridgeSegments, 1, 0, 0,
+                    (x, y) => {
+                        const b = Bodies.rectangle(x, y, segWidth, 16, {
+                            friction: 0.8, density: 0.01,
+                            render: { fillStyle: '#94a3b8', strokeStyle: '#475569', lineWidth: 1 }
+                        });
+                        buildingBlocks.push(b);
+                        return b;
+                    }
+                );
+
+                Composites.chain(bridgeStack, 0.5, 0, -0.5, 0, { stiffness: 0.9, length: 0 });
+                
+                const leftAnchor = Bodies.rectangle((width / 2) - (bridgeSegments * segWidth / 2) - 35, bridgeY + 60, 70, 180, { isStatic: true, render: { fillStyle: '#334155' } });
+                const rightAnchor = Bodies.rectangle((width / 2) + (bridgeSegments * segWidth / 2) + 35, bridgeY + 60, 70, 180, { isStatic: true, render: { fillStyle: '#334155' } });
+
+                Constraint.create({ bodyA: leftAnchor, bodyB: bridgeStack.bodies[0], pointB: { x: -segWidth / 2, y: 0 }, stiffness: 0.9 });
+                Constraint.create({ bodyA: rightAnchor, bodyB: bridgeStack.bodies[bridgeStack.bodies.length - 1], pointB: { x: segWidth / 2, y: 0 }, stiffness: 0.9 });
+
+                Composite.add(world, [bridgeStack, leftAnchor, rightAnchor]);
+
+                for (let i = 2; i < bridgeSegments - 2; i += 3) {
+                    const car = Bodies.rectangle(bridgeStack.bodies[i].position.x, bridgeY - 15, 26, 12, {
+                        density: 0.005, render: { fillStyle: Common.choose(['#ef4444', '#f59e0b', '#10b981']) }
+                    });
+                    people.push(car);
+                    Composite.add(world, car);
+                }
+            }
+
+            initialBlockCount = buildingBlocks.length;
+            initialPeopleCount = people.length;
+
+            const mouse = Mouse.create(render.canvas);
+            const mouseConstraint = MouseConstraint.create(engine, {
+                mouse: mouse,
+                constraint: { stiffness: 0.2, render: { visible: false } }
+            });
+            Composite.add(world, mouseConstraint);
+            render.mouse = mouse;
+        }
+
+        Events.on(render, 'afterRender', () => {
+            const ctx = render.context;
+
+            for (let i = 0; i < buildingBlocks.length; i++) {
+                const b = buildingBlocks[i];
+                if (!b || !b.position) continue;
+
+                const speed = Vector.magnitude(b.velocity);
+                
+                if (speed > 4.5 && Math.random() < 0.15) {
+                    createDustCloud(b.position.x, b.position.y, 3);
+                    if (speed > 8) audioEngine.playCrashSound(Math.min(0.4, speed * 0.03));
+                }
+
+                if (b.blockType) {
+                    drawRealisticBuildingBlock(ctx, b);
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw(ctx);
+                if (p.life <= 0) particles.splice(i, 1);
+            }
+        });
+
+        const seismoCanvas = document.getElementById('seismo-canvas');
+        const seismoCtx = seismoCanvas.getContext('2d');
+        const seismoData = new Array(120).fill(0);
+
+        function updateSeismograph(pga) {
+            seismoCanvas.width = seismoCanvas.clientWidth;
+            seismoCanvas.height = seismoCanvas.clientHeight;
+
+            const w = seismoCanvas.width;
+            const h = seismoCanvas.height;
+
+            seismoData.push(pga);
+            seismoData.shift();
+
+            seismoCtx.clearRect(0, 0, w, h);
+            seismoCtx.strokeStyle = isQuaking ? '#ef4444' : '#10b981';
+            seismoCtx.lineWidth = 1.5;
+            seismoCtx.beginPath();
+
+            const step = w / (seismoData.length - 1);
+            const centerY = h / 2;
+
+            for (let i = 0; i < seismoData.length; i++) {
+                const x = i * step;
+                const val = seismoData[i] * (h / 3);
+                const noise = isQuaking ? (Math.random() - 0.5) * 2 : 0;
+                const y = centerY + val + noise;
+                if (i === 0) seismoCtx.moveTo(x, y);
+                else seismoCtx.lineTo(x, y);
+            }
+            seismoCtx.stroke();
+        }
+
+        function updateDamageStats(pga) {
+            let destroyedCount = 0;
+            const groundLimit = window.innerHeight - 120;
+
+            for (let b of buildingBlocks) {
+                if (b.position.y > groundLimit || Math.abs(b.angle) > 0.8) {
+                    destroyedCount++;
+                }
+            }
+
+            const damagePercent = initialBlockCount > 0 ? Math.min(100, Math.round((destroyedCount / initialBlockCount) * 100)) : 0;
+            const damageElem = document.getElementById('damage-percent');
+            damageElem.innerText = `${damagePercent}%`;
+            damageElem.className = damagePercent > 50 ? "text-lg font-bold text-red-500 animate-pulse" : (damagePercent > 20 ? "text-lg font-bold text-yellow-400" : "text-lg font-bold text-emerald-400");
+
+            let safeCivilians = 0;
+            for (let p of people) {
+                if (Vector.magnitude(p.velocity) < 3.0) safeCivilians++;
+            }
+            const safePercent = initialPeopleCount > 0 ? Math.round((safeCivilians / initialPeopleCount) * 100) : 100;
+            const civElem = document.getElementById('civilians-status');
+            civElem.innerText = `${safePercent}% SAFE`;
+            civElem.className = safePercent < 60 ? "text-lg font-bold text-red-500" : "text-lg font-bold text-cyan-400";
+
+            document.getElementById('pga-display').innerText = `${pga.toFixed(2)} g`;
+        }
+
+        Events.on(engine, 'beforeUpdate', () => {
+            let currentPGA = 0;
+
+            if (isQuaking) {
+                quakeTime += 0.1;
+
+                const sliderVal = parseFloat(document.getElementById('intensity-slider').value);
+                const waveType = document.getElementById('wave-select').value;
+
+                const forceScaleX = (sliderVal / 10) * 1.8;
+                const forceScaleY = (sliderVal / 10) * 0.9;
+
+                const noiseX = Math.sin(quakeTime * 14) * Math.cos(quakeTime * 22);
+                const noiseY = Math.cos(quakeTime * 11) * Math.sin(quakeTime * 18);
+
+                if (waveType === 'both' || waveType === 'horizontal') {
+                    engine.gravity.x = noiseX * forceScaleX;
+                } else engine.gravity.x = 0;
+
+                if (waveType === 'both' || waveType === 'vertical') {
+                    engine.gravity.y = 1 + (noiseY * forceScaleY);
+                } else engine.gravity.y = 1;
+
+                currentPGA = Math.abs(engine.gravity.x) + Math.abs(engine.gravity.y - 1);
+
+                audioEngine.setRumble(sliderVal, true);
+
+                if (sliderVal > 6.0 && Math.random() < 0.06 && lightConstraints.length > 0) {
+                    const idx = Math.floor(Math.random() * lightConstraints.length);
+                    const constraint = lightConstraints.splice(idx, 1)[0];
+                    if (constraint) {
+                        createSparks(constraint.pointB.x + groundBody.position.x, window.innerHeight - 80);
+                        Composite.remove(world, constraint);
+                    }
+                }
+
+                if (sliderVal >= 7.5) {
+                    const bodies = Composite.allBodies(world);
+                    for (let i = 0; i < bodies.length; i++) {
+                        const b = bodies[i];
+                        if (!b.isStatic && Math.random() > 0.96) {
+                            Body.applyForce(b, b.position, {
+                                x: (Math.random() - 0.5) * 0.006 * b.mass,
+                                y: -Math.random() * 0.006 * b.mass
+                            });
+                        }
+                    }
+                }
+            } else {
+                engine.gravity.x = 0;
+                engine.gravity.y = 1;
+                audioEngine.setRumble(0, false);
+
+                for (let p of people) {
+                    if (Math.random() < 0.02 && Math.abs(p.velocity.y) < 0.2) {
+                        Body.applyForce(p, p.position, { x: (Math.random() - 0.5) * 0.0002, y: 0 });
+                    }
+                }
+            }
+
+            updateSeismograph(currentPGA);
+            updateDamageStats(currentPGA);
+        });
+
+        const slider = document.getElementById('intensity-slider');
+        const intensityDisplay = document.getElementById('intensity-display');
+        const btnQuake = document.getElementById('btn-quake');
+        const btnReset = document.getElementById('btn-reset');
+        const btnSlowMo = document.getElementById('btn-slowmo');
+        const btnAudio = document.getElementById('btn-audio');
+
+        buildSimulation('city');
+
+        window.addEventListener('resize', () => {
+            render.canvas.width = window.innerWidth;
+            render.canvas.height = window.innerHeight;
+            buildSimulation(currentPreset);
+        });
+
+        slider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value).toFixed(1);
+            intensityDisplay.innerText = `${val} M`;
+            if (val < 4) intensityDisplay.className = "text-xl font-bold font-tech text-emerald-400";
+            else if (val < 7) intensityDisplay.className = "text-xl font-bold font-tech text-yellow-400";
+            else intensityDisplay.className = "text-xl font-bold font-tech text-red-500 animate-pulse";
+        });
+
+        btnQuake.addEventListener('click', () => {
+            isQuaking = !isQuaking;
+            if (isQuaking) {
+                quakeTime = 0;
+                audioEngine.init();
+                btnQuake.innerHTML = `
+                    <svg class="animate-spin h-5 w-5 text-white inline mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    HALT SEISMIC ACTIVITY
+                `;
+                btnQuake.className = "w-full bg-red-800 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 shadow-[0_0_25px_rgba(220,38,38,0.8)] flex items-center justify-center gap-2 tracking-wider text-sm font-tech";
+            } else {
+                btnQuake.innerHTML = `
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    TRIGGER SEISMIC EVENT
+                `;
+                btnQuake.className = "w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-[1.01] active:scale-95 shadow-[0_0_20px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2 tracking-wider text-sm font-tech";
+            }
+        });
+
+        btnReset.addEventListener('click', () => {
+            isQuaking = false;
+            engine.gravity.x = 0;
+            engine.gravity.y = 1;
+            btnQuake.innerHTML = `
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                TRIGGER SEISMIC EVENT
+            `;
+            btnQuake.className = "w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold py-3 px-4 rounded-xl transition-all duration-200 transform hover:scale-[1.01] active:scale-95 shadow-[0_0_20px_rgba(239,68,68,0.4)] flex items-center justify-center gap-2 tracking-wider text-sm font-tech";
+            buildSimulation(currentPreset);
+        });
+
+        btnSlowMo.addEventListener('click', () => {
+            isSlowMo = !isSlowMo;
+            engine.timing.timeScale = isSlowMo ? 0.3 : 1.0;
+            document.getElementById('slowmo-text').innerText = isSlowMo ? "Normal Speed" : "Slow Motion";
+            btnSlowMo.className = isSlowMo ? "bg-cyan-600 text-white font-semibold py-2 px-3 rounded-xl transition border border-cyan-400 flex items-center justify-center gap-1.5 text-xs" : "bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold py-2 px-3 rounded-xl transition border border-slate-700 flex items-center justify-center gap-1.5 text-xs";
+        });
+
+        btnAudio.addEventListener('click', () => {
+            audioEngine.init();
+            audioEngine.isEnabled = !audioEngine.isEnabled;
+            document.getElementById('audio-icon-off').classList.toggle('hidden', audioEngine.isEnabled);
+            document.getElementById('audio-icon-on').classList.toggle('hidden', !audioEngine.isEnabled);
+        });
+
+        document.getElementById('time-select').addEventListener('change', (e) => {
+            currentTheme = themes[e.target.value] || themes.night;
+            document.body.style.backgroundColor = currentTheme.bg;
+            if (groundBody) groundBody.render.fillStyle = currentTheme.ground;
+        });
+
+        document.getElementById('material-select').addEventListener('change', () => {
+            if (!isQuaking) buildSimulation(currentPreset);
+        });
+
+        document.querySelectorAll('.preset-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.preset-btn').forEach(b => {
+                    b.className = "preset-btn bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs px-3 py-1.5 rounded-full transition font-medium whitespace-nowrap";
+                });
+                const targetBtn = e.target.closest('.preset-btn');
+                targetBtn.className = "preset-btn bg-orange-600/80 hover:bg-orange-500 text-white text-xs px-3 py-1.5 rounded-full transition shadow font-medium whitespace-nowrap";
+                
+                currentPreset = targetBtn.dataset.preset;
+                buildSimulation(currentPreset);
+            });
+        });
+    </script>
+</body>
+</html>

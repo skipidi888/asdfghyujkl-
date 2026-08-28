@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0B0F19" />
+  <meta name="description" content="Sign in to Disaster Prep Hub." />
+  <title>Sign In | Disaster Prep Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="login-gate standalone-login">
+    <div class="gate-bg" data-login-ambient aria-hidden="true"></div>
+    <section class="gate-card" aria-labelledby="loginTitle">
+      <div class="gate-overview">
+        <div class="gate-brand">
+          <span class="gate-logo-mark" aria-hidden="true"></span>
+          <div>
+            <div class="gate-logo-text">DISASTER PREP HUB</div>
+            <div class="gate-version">v2.0 · Global Hazard Intelligence</div>
+          </div>
+        </div>
+        <div class="gate-kicker"><span class="status-pulse"></span> GLOBAL SITUATIONAL AWARENESS</div>
+        <h1 id="loginTitle">Know what is coming.</h1>
+        <p class="gate-lead">Explore the world's hazard picture, understand local exposure, and move from alert to action.</p>
+        <div class="gate-signal-grid" aria-label="Platform capabilities">
+          <div><strong>14</strong><span>hazard types</span></div>
+          <div><strong>50+</strong><span>historical events</span></div>
+          <div><strong>06</strong><span>decision simulators</span></div>
+        </div>
+        <div class="gate-command-line"><span class="command-dot"></span><span>LIVE GLOBE NETWORK</span><b>READY</b></div>
+
+        <div class="gate-ticker" data-login-ticker aria-live="polite" aria-atomic="true">
+          <span class="lt-dot" aria-hidden="true"></span>
+          <div class="lt-body">
+            <span class="lt-value">—</span>
+            <span class="lt-label">Loading intel…</span>
+          </div>
+          <span class="lt-tag" aria-hidden="true">LIVE</span>
+        </div>
+
+        <div class="gate-how">
+          <h2 class="gate-how-title">How it works</h2>
+          <ol class="gate-how-steps">
+            <li>
+              <span class="ghow-num" aria-hidden="true">01</span>
+              <div>
+                <strong>Explore the globe</strong>
+                <span>Pan a 3D world map, tap a country, and surface the hazards it faces.</span>
+              </div>
+            </li>
+            <li>
+              <span class="ghow-num" aria-hidden="true">02</span>
+              <div>
+                <strong>Drill into simulators</strong>
+                <span>Step through six decision scenarios: floods, quakes, fire, wind, surge, blackout.</span>
+              </div>
+            </li>
+            <li>
+              <span class="ghow-num" aria-hidden="true">03</span>
+              <div>
+                <strong>Prepare the kit</strong>
+                <span>Build a go-bag checklist, save action plans, and pin your local contacts.</span>
+              </div>
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="gate-access">
+        <div class="gate-access-head">
+          <span>LOCAL ACCESS</span>
+          <span class="gate-access-lock">DEVICE ONLY</span>
+        </div>
+        <p class="muted">Sign in to a saved profile or create one for this device. No account or network login required.</p>
+        <form id="loginForm" autocomplete="off" novalidate>
+          <label for="loginUser" class="sr-only">Profile name</label>
+          <div class="gate-input-wrap">
+            <span class="gate-input-icon" aria-hidden="true">👤</span>
+            <input id="loginUser" placeholder="Profile name" autocomplete="off" required />
+          </div>
+          <label for="loginPass" class="sr-only">Local PIN</label>
+          <div class="gate-input-wrap">
+            <span class="gate-input-icon" aria-hidden="true">🔒</span>
+            <input id="loginPass" type="password" placeholder="Local PIN" autocomplete="off" required />
+          </div>
+          <div id="loginError" class="error-msg" role="alert"></div>
+          <button type="submit" class="btn-primary gate-submit">Sign In &amp; Continue</button>
+          <button type="button" id="loginGuest" class="btn-ghost gate-guest">Continue as Guest</button>
+        </form>
+
+        <div class="gate-saved" id="savedProfiles" aria-label="Saved profiles">
+          <div class="gate-saved-head"><span>Saved Profiles</span><span id="savedCount" class="gate-saved-count">0</span></div>
+          <div id="savedList" class="gate-saved-list"></div>
+        </div>
+        <div class="gate-footer"><span>Private by default · personalization stays on this device</span></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="data.js"></script>
+  <script src="login-ui.js"></script>
+  <script>
+    (() => {
+      const readProfiles = () => {
+        try { return JSON.parse(localStorage.getItem('dph_profiles') || '{}'); }
+        catch { return {}; }
+      };
+      const writeProfiles = profiles => localStorage.setItem('dph_profiles', JSON.stringify(profiles));
+      const userInput = document.getElementById('loginUser');
+      const passInput = document.getElementById('loginPass');
+      const error = document.getElementById('loginError');
+      const list = document.getElementById('savedList');
+      const count = document.getElementById('savedCount');
+
+      function enter(username) {
+        localStorage.setItem('dph_currentUser', username);
+        window.location.href = 'index.html';
+      }
+
+      function escapeHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str == null ? '' : String(str);
+        return d.innerHTML;
+      }
+
+      function renderProfiles() {
+        const profiles = readProfiles();
+        const names = Object.keys(profiles).sort();
+        count.textContent = names.length;
+        list.innerHTML = names.map(name => `<div class="gate-saved-row"><span class="gsr-name">${escapeHtml(name)}</span><button class="gsr-load" type="button" data-name="${encodeURIComponent(name)}">Load</button></div>`).join('');
+        list.querySelectorAll('.gsr-load').forEach(button => {
+          button.addEventListener('click', () => {
+            userInput.value = decodeURIComponent(button.dataset.name);
+            passInput.focus();
+          });
+        });
+      }
+
+      document.getElementById('loginForm').addEventListener('submit', event => {
+        event.preventDefault();
+        const username = userInput.value.trim();
+        const password = passInput.value;
+        const profiles = readProfiles();
+        if (!username || !password) { error.textContent = 'Profile name and PIN are required.'; return; }
+        if (profiles[username] && profiles[username].password !== password) { error.textContent = 'PIN does not match this profile.'; return; }
+        profiles[username] = { password, safe: !!profiles[username]?.safe, createdAt: profiles[username]?.createdAt || Date.now(), lastLogin: Date.now() };
+        writeProfiles(profiles);
+        enter(username);
+      });
+
+      document.getElementById('loginGuest').addEventListener('click', () => {
+        localStorage.removeItem('dph_currentUser');
+        window.location.href = 'index.html';
+      });
+
+      renderProfiles();
+      userInput.focus();
+    })();
+  </script>
+</body>
+</html>
