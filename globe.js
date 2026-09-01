@@ -20,14 +20,13 @@ window.DPH_GLOBE = (function () {
   let camDist = DEFAULT_DIST;
   let targetCamDist = DEFAULT_DIST;
   let autoRotate = false;
-  let spinSpeed = 0.0008;             // rad/frame
+  const spinSpeed = 0.0008;           // rad/frame
   let pinGroup;                       // markers container
-  let pinMap = new Map();             // event.id -> pin object
+  const pinMap = new Map();           // event.id -> pin object
   let activeEventId = null;
   let defaultColor = '#00E5FF';
   let clickCallback = null;
   let hoverCallback = null;
-  let animationId = null;
   let resizeObserver = null;
   // Labels (country + continent) rendered as HTML overlay
   let labelLayer = null;
@@ -446,16 +445,25 @@ window.DPH_GLOBE = (function () {
     renderer.setSize(width, height);
   }
 
+  let hoveredEventId = null;
+
   function onPointerMove(e) {
     if (isDragging) return; // hover only when not dragging
     updateMouse(e);
     const hit = pickPin();
     if (hit) {
       renderer.domElement.style.cursor = 'pointer';
-      if (hoverCallback) hoverCallback(hit.userData.event);
+      hoveredEventId = hit.userData.event.id;
+      if (hoverCallback) {
+        const pinPos = new THREE.Vector3();
+        hit.getWorldPosition(pinPos);
+        const screen = projectToScreen(pinPos);
+        hoverCallback(hit.userData.event, screen || { x: e.clientX, y: e.clientY });
+      }
     } else {
       renderer.domElement.style.cursor = 'grab';
-      if (hoverCallback) hoverCallback(null);
+      hoveredEventId = null;
+      if (hoverCallback) hoverCallback(null, null);
     }
   }
 
@@ -466,24 +474,9 @@ window.DPH_GLOBE = (function () {
     if (hit && clickCallback) clickCallback(hit.userData.event);
   }
 
-  let dragStartX = 0, dragStartY = 0, dragMoved = 0;
-  // Re-bind to track drag distance: override mousedown
-  // (kept simple — use a separate flag set in pointerdown)
-  // Note: we patch by storing drag start on first move after mousedown.
-  // Simpler: track any move while dragging and ignore click if total > threshold.
-  // Done below via dragMoved accumulator patched into the existing handler:
-
-  function wasDragClick(e) {
-    // approx: if mouse moved more than ~5px between down and up, treat as drag.
-    // Track via lightweight start position captured on pointerdown.
+  function wasDragClick(_e) {
     return dragClickFlag;
   }
-
-  // Patch: hook pointerdown to set dragClickFlag false, then flip if movement >= 5px
-  // We piggyback on the existing mousedown listener area.
-  // To avoid restructuring, we add a dedicated pointerdown listener:
-  // (registered in bindEvents below — kept inline here for proximity to logic)
-  // Implementation note: actual pointerdown is added in bindEvents().
 
   function updateMouse(e) {
     const rect = renderer.domElement.getBoundingClientRect();
@@ -495,10 +488,11 @@ window.DPH_GLOBE = (function () {
     raycaster.setFromCamera(mouse, camera);
     const hits = raycaster.intersectObjects(pinGroup.children, true);
     if (!hits.length) return null;
-    // walk up to pin root
+    // walk up to pin root and check if visible/facing camera
     let n = hits[0].object;
     while (n && !n.userData.event) n = n.parent;
-    return n || null;
+    if (!n || !n.visible) return null;
+    return n;
   }
 
   // ===== Labels (country + continent) =====
@@ -569,37 +563,204 @@ window.DPH_GLOBE = (function () {
     }
   }
 
+  // ===== Disaster Pin Textures & Caches =====
+  const pinTextureCache = new Map();
+
+  function getBadgeTexture(ev, color, isActive) {
+    const icon = ev.icon || (window.DPH_DATA && window.DPH_DATA.HAZARDS[ev.hazardId] ? window.DPH_DATA.HAZARDS[ev.hazardId].icon : '⚠️');
+    const key = `badge_${ev.hazardId || 'haz'}_${icon}_${color}_${isActive ? '1' : '0'}`;
+    if (pinTextureCache.has(key)) return pinTextureCache.get(key);
+
+    const c = document.createElement('canvas');
+    c.width = c.height = 256;
+    const ctx = c.getContext('2d');
+    const cx = 128, cy = 128;
+
+    // Ambient halo glow
+    const outerGlow = ctx.createRadialGradient(cx, cy, 60, cx, cy, 126);
+    outerGlow.addColorStop(0, color);
+    outerGlow.addColorStop(0.65, 'rgba(0,0,0,0.4)');
+    outerGlow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = outerGlow;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 126, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Dark tactical glass disc background
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, 84, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(6, 10, 22, 0.94)';
+    ctx.fill();
+
+    // Glowing neon border ring
+    ctx.lineWidth = isActive ? 10 : 7;
+    ctx.strokeStyle = isActive ? '#FF2E9A' : color;
+    ctx.shadowColor = isActive ? '#FF2E9A' : color;
+    ctx.shadowBlur = 18;
+    ctx.stroke();
+    ctx.restore();
+
+    // Inner subtle grid/ring
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 72, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Active targeting reticle brackets
+    if (isActive) {
+      ctx.strokeStyle = '#00E5FF';
+      ctx.lineWidth = 4;
+      const r = 95;
+      [Math.PI * 0.25, Math.PI * 0.75, Math.PI * 1.25, Math.PI * 1.75].forEach((ang) => {
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, ang - 0.22, ang + 0.22);
+        ctx.stroke();
+      });
+    }
+
+    // Centered Hazard Emoji/Icon
+    ctx.font = 'bold 84px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+    ctx.shadowBlur = 14;
+    ctx.fillText(icon, cx, cy + 3);
+
+    // Mini severity pip at the top
+    const sev = (ev.profile && ev.profile.severity) || 2;
+    const pipColor = sev >= 3 ? '#FF4757' : (sev === 2 ? '#FFA502' : '#2ED573');
+    ctx.beginPath();
+    ctx.arc(cx, cy - 84, 9, 0, Math.PI * 2);
+    ctx.fillStyle = pipColor;
+    ctx.shadowColor = pipColor;
+    ctx.shadowBlur = 10;
+    ctx.fill();
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.needsUpdate = true;
+    pinTextureCache.set(key, tex);
+    return tex;
+  }
+
+  function getGroundWaveTexture(color) {
+    const key = `wave_${color}`;
+    if (pinTextureCache.has(key)) return pinTextureCache.get(key);
+
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const ctx = c.getContext('2d');
+    const cx = 64, cy = 64;
+
+    const g = ctx.createRadialGradient(cx, cy, 25, cx, cy, 60);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.7, color);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 60, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 54, 0, Math.PI * 2);
+    ctx.stroke();
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.needsUpdate = true;
+    pinTextureCache.set(key, tex);
+    return tex;
+  }
+
+  function getGroundCoreTexture(color) {
+    const key = `core_${color}`;
+    if (pinTextureCache.has(key)) return pinTextureCache.get(key);
+
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const ctx = c.getContext('2d');
+    const cx = 32, cy = 32;
+
+    const g = ctx.createRadialGradient(cx, cy, 2, cx, cy, 30);
+    g.addColorStop(0, '#FFFFFF');
+    g.addColorStop(0.35, color);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 30, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.needsUpdate = true;
+    pinTextureCache.set(key, tex);
+    return tex;
+  }
+
+  function getBeamTexture(color) {
+    const key = `beam_${color}`;
+    if (pinTextureCache.has(key)) return pinTextureCache.get(key);
+
+    const c = document.createElement('canvas');
+    c.width = 64;
+    c.height = 256;
+    const ctx = c.getContext('2d');
+
+    const g = ctx.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0, color);
+    g.addColorStop(0.25, 'rgba(255,255,255,0.7)');
+    g.addColorStop(0.65, color);
+    g.addColorStop(1, '#FFFFFF');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 64, 256);
+
+    const tex = new THREE.CanvasTexture(c);
+    tex.needsUpdate = true;
+    pinTextureCache.set(key, tex);
+    return tex;
+  }
+
   function setMarkers(events, defColor, activeId) {
     defaultColor = defColor || '#00E5FF';
     activeEventId = activeId || null;
 
-    // clear — each pin is a Group (stem mesh + tip mesh + halo sprite), so
-    // walk its children to actually free geometries/materials/textures
-    // instead of only checking the (empty) top-level Group.
+    // Clear existing pins and clean geometries/materials
     while (pinGroup.children.length) {
       const pin = pinGroup.children.pop();
       pin.traverse((obj) => {
         if (obj.geometry && obj.geometry.dispose) obj.geometry.dispose();
         if (obj.material) {
-          if (obj.material.map && obj.material.map.dispose) obj.material.map.dispose();
           if (obj.material.dispose) obj.material.dispose();
         }
       });
     }
     pinMap.clear();
 
-    events.forEach((ev) => {
-      const pin = makePin(ev);
+    events.forEach((ev, idx) => {
+      const pin = makePin(ev, idx);
       pinGroup.add(pin);
       pinMap.set(ev.id, pin);
     });
   }
 
-  function makePin(ev) {
+  function makePin(ev, idx = 0) {
     const isActive = activeEventId && ev.id === activeEventId;
     const color = isActive ? '#FF2E9A' : (ev.color || defaultColor);
     const grp = new THREE.Group();
     grp.userData.event = ev;
+    grp.userData.seed = (idx * 0.73) % (Math.PI * 2);
+    grp.userData.currentScale = 1.0;
+    grp.userData.isActive = isActive;
+    grp.userData.color = color;
 
     const pos = latLonToVec3(ev.lat, ev.lon, RADIUS);
     grp.position.copy(pos);
@@ -607,51 +768,96 @@ window.DPH_GLOBE = (function () {
     // Orient pin so its +Z axis points outward from globe center
     grp.lookAt(pos.clone().multiplyScalar(2));
 
-    // Stem
-    const stemGeo = new THREE.CylinderGeometry(0.004, 0.004, 0.12, 8);
-    const stemMat = new THREE.MeshBasicMaterial({ color });
-    const stem = new THREE.Mesh(stemGeo, stemMat);
-    stem.position.z = 0.06;
-    grp.add(stem);
-
-    // Tip (cone)
-    const tipGeo = new THREE.ConeGeometry(0.018, 0.05, 12);
-    const tipMat = new THREE.MeshBasicMaterial({ color });
-    const tip = new THREE.Mesh(tipGeo, tipMat);
-    tip.position.z = 0.14;
-    tip.rotation.x = Math.PI / 2;
-    grp.add(tip);
-
-    // Pulsing ring (sprite halo)
-    const ringMat = new THREE.SpriteMaterial({
-      map: makePinHaloTexture(color),
-      color: 0xffffff,
+    // 1. Ground Epicenter Core Dot
+    const coreMat = new THREE.SpriteMaterial({
+      map: getGroundCoreTexture(color),
       transparent: true,
-      opacity: 0.9,
+      opacity: 0.95,
       depthWrite: false
     });
-    const ring = new THREE.Sprite(ringMat);
-    ring.scale.set(0.12, 0.12, 1);
-    ring.position.z = 0.02;
-    grp.add(ring);
-    grp.userData.ring = ring;
+    const core = new THREE.Sprite(coreMat);
+    core.scale.set(0.065, 0.065, 1);
+    core.position.z = 0.005;
+    grp.add(core);
+    grp.userData.core = core;
+
+    // 2. Dual Concentric Sonar Shockwaves
+    const waveMat1 = new THREE.SpriteMaterial({
+      map: getGroundWaveTexture(color),
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const wave1 = new THREE.Sprite(waveMat1);
+    wave1.position.z = 0.004;
+    grp.add(wave1);
+    grp.userData.wave1 = wave1;
+
+    const waveMat2 = new THREE.SpriteMaterial({
+      map: getGroundWaveTexture(color),
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending
+    });
+    const wave2 = new THREE.Sprite(waveMat2);
+    wave2.position.z = 0.003;
+    grp.add(wave2);
+    grp.userData.wave2 = wave2;
+
+    // 3. Luminous Cyber Light Beam (Vertical Beacon)
+    // Core rod (intense inner line)
+    const coreRodGeo = new THREE.CylinderGeometry(0.002, 0.002, 0.13, 8);
+    const coreRodMat = new THREE.MeshBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.9
+    });
+    const coreRod = new THREE.Mesh(coreRodGeo, coreRodMat);
+    coreRod.position.z = 0.07;
+    coreRod.rotation.x = Math.PI / 2;
+    grp.add(coreRod);
+    grp.userData.coreRod = coreRod;
+
+    // Outer tapered holographic sheath
+    const beamGeo = new THREE.CylinderGeometry(0.006, 0.014, 0.13, 16, 1, true);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color,
+      map: getBeamTexture(color),
+      transparent: true,
+      opacity: 0.75,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const beam = new THREE.Mesh(beamGeo, beamMat);
+    beam.position.z = 0.07;
+    beam.rotation.x = Math.PI / 2;
+    grp.add(beam);
+    grp.userData.beam = beam;
+
+    // 4. Floating 3D Hazard Badge Head
+    const badgeMat = new THREE.SpriteMaterial({
+      map: getBadgeTexture(ev, color, isActive),
+      transparent: true,
+      opacity: 1.0,
+      depthWrite: false
+    });
+    const badge = new THREE.Sprite(badgeMat);
+    badge.scale.set(0.14, 0.14, 1);
+    badge.position.z = 0.155;
+    grp.add(badge);
+    grp.userData.badge = badge;
+
+    // 5. Invisible Hit-box for smooth responsive hovering/clicking
+    const hitGeo = new THREE.SphereGeometry(0.075, 8, 8);
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false, depthWrite: false });
+    const hitMesh = new THREE.Mesh(hitGeo, hitMat);
+    hitMesh.position.z = 0.09;
+    grp.add(hitMesh);
 
     return grp;
-  }
-
-  function makePinHaloTexture(hex) {
-    const c = document.createElement('canvas');
-    c.width = c.height = 64;
-    const ctx = c.getContext('2d');
-    ctx.clearRect(0, 0, 64, 64);
-    ctx.strokeStyle = hex;
-    ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.arc(32, 32, 22, 0, Math.PI * 2); ctx.stroke();
-    ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.arc(32, 32, 14, 0, Math.PI * 2); ctx.stroke();
-    const tex = new THREE.CanvasTexture(c);
-    tex.needsUpdate = true;
-    return tex;
   }
 
   function focusEvent(ev) {
@@ -709,7 +915,7 @@ window.DPH_GLOBE = (function () {
   // ===== Frame loop =====
   let dragClickFlag = false;
   function animate() {
-    animationId = requestAnimationFrame(animate);
+    requestAnimationFrame(animate);
 
     if (autoRotate && !isDragging) {
       targetYaw -= spinSpeed * 10; // gentle spin
@@ -726,14 +932,75 @@ window.DPH_GLOBE = (function () {
     camera.position.set(0, 0, camDist);
     camera.lookAt(0, 0, 0);
 
-    // Pulse rings
-    const t = performance.now() * 0.003;
+    // Animate & update disaster pins
+    const t = performance.now() * 0.001;
+    const camDir = new THREE.Vector3();
+    camera.getWorldDirection(camDir);
+    const pinWorldPos = new THREE.Vector3();
+
     pinMap.forEach((pin) => {
-      const ring = pin.userData.ring;
-      if (!ring) return;
-      const s = 0.10 + 0.04 * (0.5 + 0.5 * Math.sin(t + pin.id));
-      ring.scale.set(s, s, 1);
-      ring.material.opacity = 0.55 + 0.35 * Math.sin(t + pin.id);
+      const u = pin.userData;
+      if (!u || !u.event) return;
+
+      // Horizon culling / occlusion check: dot product with camera facing direction
+      pin.getWorldPosition(pinWorldPos);
+      const camToPin = pinWorldPos.clone().sub(camera.position).normalize();
+      const dot = camToPin.dot(camDir); // > 0 is front hemisphere
+
+      if (dot <= -0.04) {
+        if (pin.visible) pin.visible = false;
+        return;
+      }
+      if (!pin.visible) pin.visible = true;
+
+      // Smooth horizon entry/exit fade
+      const horizonFade = Math.max(0, Math.min(1, (dot + 0.04) / 0.28));
+
+      // Hover / Active states
+      const isHovered = (hoveredEventId && hoveredEventId === u.event.id);
+      const isActive = (activeEventId && activeEventId === u.event.id);
+      const targetScale = isActive ? 1.45 : (isHovered ? 1.32 : 1.0);
+      u.currentScale = THREE.MathUtils.lerp(u.currentScale || 1.0, targetScale, 0.16);
+
+      // 1. Floating Badge: gentle floating bob + scale
+      if (u.badge) {
+        const bob = Math.sin(t * 2.8 + u.seed) * 0.006;
+        u.badge.position.z = 0.155 + bob;
+        const bScale = 0.14 * u.currentScale;
+        u.badge.scale.set(bScale, bScale, 1);
+        u.badge.material.opacity = horizonFade;
+      }
+
+      // 2. Dual Concentric Sonar Shockwaves (Expanding ripple radar)
+      const waveSpeed = (isActive || isHovered) ? 1.6 : 0.95;
+      const phase1 = ((t * waveSpeed + u.seed) % 1.0);
+      const phase2 = ((t * waveSpeed + u.seed + 0.5) % 1.0);
+
+      if (u.wave1) {
+        const s1 = 0.06 + phase1 * 0.22;
+        u.wave1.scale.set(s1, s1, 1);
+        u.wave1.material.opacity = (1.0 - phase1) * 0.9 * horizonFade;
+      }
+      if (u.wave2) {
+        const s2 = 0.06 + phase2 * 0.22;
+        u.wave2.scale.set(s2, s2, 1);
+        u.wave2.material.opacity = (1.0 - phase2) * 0.9 * horizonFade;
+      }
+
+      // 3. Ground Core Dot
+      if (u.core) {
+        const coreScale = 0.065 * (0.9 + 0.2 * Math.sin(t * 4 + u.seed));
+        u.core.scale.set(coreScale, coreScale, 1);
+        u.core.material.opacity = 0.95 * horizonFade;
+      }
+
+      // 4. Luminous Light Beam & Core Rod
+      if (u.beam) {
+        u.beam.material.opacity = (0.55 + 0.35 * Math.sin(t * 3.5 + u.seed)) * horizonFade;
+      }
+      if (u.coreRod) {
+        u.coreRod.material.opacity = 0.9 * horizonFade;
+      }
     });
 
     renderer.render(scene, camera);
@@ -743,13 +1010,11 @@ window.DPH_GLOBE = (function () {
   // ===== Drag-vs-click tracking =====
   // Wire pointerdown to capture start; pointerup checks distance.
   (function attachDragTracker() {
-    // executed once init() runs — bindEvents is called there; we hook here
-    // by overriding after the renderer exists. We expose via a tiny poll:
     const tryAttach = () => {
       if (!renderer) { requestAnimationFrame(tryAttach); return; }
       const dom = renderer.domElement;
-      dom.addEventListener('pointerdown', (e) => {
-        dragStartX = e.clientX; dragStartY = e.clientY;
+      let dragMoved = 0;
+      dom.addEventListener('pointerdown', () => {
         dragMoved = 0;
         dragClickFlag = false;
       });
@@ -768,6 +1033,8 @@ window.DPH_GLOBE = (function () {
     setMarkers,
     focusEvent,
     resetView,
+    startSpin,
+    stopSpin,
     toggleAutoRotate,
     zoomBy,
     onClickCallback,

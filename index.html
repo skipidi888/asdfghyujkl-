@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1.0" />
   <meta name="theme-color" content="#0B0F19" />
   <meta name="description"
-    content="Disaster Prep Hub — explore 14 global hazard types, historical events, action plans, and interactive survival simulators on a 3D globe." />
+    content="Disaster Prep Hub — explore 19 global hazard types, historical events, action plans, and interactive survival simulators on a 3D globe." />
   <title>Disaster Prep Hub</title>
   <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -33,7 +33,7 @@
         <h1 id="gateTitle">Know what is coming.</h1>
         <p class="gate-lead">Explore the world's hazard picture, understand local exposure, and move from alert to action.</p>
         <div class="gate-signal-grid" aria-label="Platform capabilities">
-          <div><strong>14</strong><span>hazard types</span></div>
+          <div><strong>19</strong><span>hazard types</span></div>
           <div><strong>50+</strong><span>historical events</span></div>
           <div><strong>06</strong><span>decision simulators</span></div>
         </div>
@@ -122,7 +122,7 @@
       </div>
       <nav class="module-toggles" aria-label="Main sections">
         <button class="mod-toggle active" data-mod="globe" aria-pressed="true">Globe View</button>
-        <button class="mod-toggle" data-mod="hazards" aria-pressed="false">All 14 Hazards</button>
+        <button class="mod-toggle" data-mod="hazards" aria-pressed="false">All 19 Hazards</button>
         <button class="mod-toggle" data-mod="simulators" aria-pressed="false">Simulators</button>
         <button class="mod-toggle" data-mod="emergency" aria-pressed="false">Emergency Hub</button>
       </nav>
@@ -136,17 +136,66 @@
       </div>
     </div>
     <div class="hud-right">
+      <button id="settingsBtn" class="hud-icon-btn" aria-label="Open settings" title="Settings">⚙</button>
       <button id="authStatus" class="auth-badge guest" aria-haspopup="dialog">
         <span class="dot" aria-hidden="true"></span><span>Guest</span>
       </button>
     </div>
   </header>
 
+  <!-- Settings -->
+  <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <div class="modal-card settings-card">
+      <div class="settings-header">
+        <div>
+          <div class="sw-kicker"><span class="sw-live-dot"></span> CONTROL CENTER</div>
+          <h2 id="settingsTitle">Settings</h2>
+          <p class="muted">Tune the hub for your situation.</p>
+        </div>
+        <button id="settingsClose" class="sw-x" aria-label="Close settings">✕</button>
+      </div>
+      <div class="settings-list">
+        <label class="setting-row">
+          <span><b>Auto-rotate globe</b><small>Keep the world view moving</small></span>
+          <input id="settingRotate" type="checkbox" class="setting-toggle" />
+        </label>
+        <label class="setting-row">
+          <span><b>Simulation motion</b><small>Animate hazard scenes and previews</small></span>
+          <input id="settingMotion" type="checkbox" class="setting-toggle" checked />
+        </label>
+        <label class="setting-row">
+          <span><b>High contrast</b><small>Increase borders and text contrast</small></span>
+          <input id="settingContrast" type="checkbox" class="setting-toggle" />
+        </label>
+        <label class="setting-row">
+          <span><b>Coordinate readout</b><small>Show latitude, longitude and altitude</small></span>
+          <input id="settingCoordinates" type="checkbox" class="setting-toggle" checked />
+        </label>
+        <label class="setting-row">
+          <span><b>Map focus mode</b><small>Clear the overview rail for a wider globe</small></span>
+          <input id="settingFocus" type="checkbox" class="setting-toggle" />
+        </label>
+        <label class="setting-row">
+          <span><b>Compact detail drawer</b><small>Use a narrower information panel</small></span>
+          <input id="settingCompact" type="checkbox" class="setting-toggle" />
+        </label>
+      </div>
+      <div class="settings-footer">
+        <span class="sw-footer-note"><span class="sw-live-dot"></span> SAVED ON THIS DEVICE</span>
+        <div class="settings-actions">
+          <button id="settingsReset" class="btn-ghost" type="button">Reset</button>
+          <button id="settingsDone" class="btn-primary" type="button">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Main Globe Stage -->
   <main class="stage">
     <div id="globeCanvas" role="region"
       aria-label="Interactive world map showing global disaster hotspots. Drag to pan, scroll to zoom, click a marker to explore.">
     </div>
+    <div id="globeTooltip" class="globe-tooltip hidden" aria-live="polite" aria-hidden="true"></div>
     <div class="stage-hud-top">
       <div class="coord-readout" aria-hidden="true">
         <span>LAT <b id="latRead">0.00</b></span>
@@ -165,7 +214,7 @@
       <p>Explore featured disaster events across 13 regions and open a marker for its action plan.</p>
       <div class="mission-stats">
         <span><strong>13</strong> FEATURED SITES</span>
-        <span><strong>14</strong> HAZARD TYPES</span>
+        <span><strong>19</strong> HAZARD TYPES</span>
       </div>
       <div class="mission-hint"><span>01</span> Select a marker to begin analysis</div>
     </section>
@@ -199,7 +248,7 @@
   <!-- Right Drawer -->
   <aside id="sideDrawer" class="side-drawer" aria-label="Hazard details drawer">
     <div class="drawer-handle">
-      <button id="drawerToggle" aria-label="Collapse drawer" aria-expanded="true">›</button>
+      <button id="drawerToggle" aria-label="Collapse drawer" aria-expanded="true">‹</button>
     </div>
     <div class="drawer-content" id="drawerContent">
       <div class="welcome">
@@ -262,35 +311,43 @@
     <div class="modal-card sw-card">
       <div class="sw-header">
         <div>
+          <div class="sw-kicker"><span class="sw-live-dot"></span> LIVE 2D / SIDE VIEW</div>
           <h2 id="swTitle">🌊 Hazard</h2>
           <p class="muted" id="swSub"></p>
         </div>
         <button id="swClose" class="sw-x" aria-label="Close simulation window">✕</button>
       </div>
 
-      <canvas id="swCanvas" aria-label="Hazard simulation preview"></canvas>
+      <div class="sw-scene-wrap">
+        <canvas id="swCanvas" aria-label="Hazard simulation preview"></canvas>
+        <div class="sw-scene-label">FIELD VIEW <span>2D</span></div>
+        <div class="sw-scene-scale"><span>NEAR</span><i></i><span>HORIZON</span></div>
+      </div>
 
       <div class="sw-damage-bar">
-        <span id="swBadge" class="sw-badge">MODERATE</span>
+        <div>
+          <span class="sw-label">THREAT STATUS</span>
+          <span id="swBadge" class="sw-badge">MODERATE</span>
+        </div>
         <span id="swDesc"></span>
       </div>
 
       <div class="sw-controls">
         <div class="sw-row">
-          <label for="swIntensity">⚡ Intensity</label>
+          <label for="swIntensity"><span class="sw-control-icon">01</span> Intensity</label>
           <input type="range" id="swIntensity" min="10" max="100" value="55" />
           <b id="swIntensityVal">55%</b>
         </div>
         <div class="sw-row">
-          <label for="swSpeed">⏩ Speed</label>
+          <label for="swSpeed"><span class="sw-control-icon">02</span> Playback</label>
           <select id="swSpeed">
-            <option value="0.5">🐢 Slow (0.5x)</option>
-            <option value="1" selected>▶ Normal (1x)</option>
-            <option value="2">⏩ Fast (2x)</option>
+            <option value="0.5">Slow / 0.5x</option>
+            <option value="1" selected>Normal / 1x</option>
+            <option value="2">Fast / 2x</option>
           </select>
         </div>
         <div class="sw-row">
-          <label>💥 Damage Level</label>
+          <label><span class="sw-control-icon">03</span> Damage level</label>
           <div class="sw-levels" role="group" aria-label="Damage level">
             <button class="lv-btn" data-lv="1" type="button">Mild</button>
             <button class="lv-btn active" data-lv="2" type="button">Moderate</button>
@@ -301,9 +358,12 @@
       </div>
 
       <div class="sw-footer">
-        <button id="swRestart" class="btn-ghost" type="button">↻ Restart</button>
-        <button id="swPause" class="btn-ghost" type="button">⏸ Pause</button>
-        <button id="swStep" class="btn-ghost" type="button">⏭ Step</button>
+        <span class="sw-footer-note"><span class="sw-live-dot"></span> SIMULATION FEED</span>
+        <div class="sw-actions">
+          <button id="swRestart" class="btn-ghost" type="button">↻ Restart</button>
+          <button id="swPause" class="btn-primary" type="button">⏸ Pause</button>
+          <button id="swStep" class="btn-ghost" type="button">⏭ Step</button>
+        </div>
       </div>
     </div>
   </div>

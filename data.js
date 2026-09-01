@@ -168,7 +168,7 @@ window.DPH_DATA = (function(){
       ]
     },
     flashflood: {
-      id:'flashflood', name:'Flash Flood', icon:'⛈',
+      id:'flashflood', name:'Flood', icon:'⛈',
       type:'Hydrological', baseSeverity:2,
       color:'#00B4D8',
       events:[
@@ -214,7 +214,7 @@ window.DPH_DATA = (function(){
       ]
     },
     lightning: {
-      id:'lightning', name:'Lightning Strike', icon:'⚡',
+      id:'lightning', name:'Lightning Storm', icon:'⚡',
       type:'Meteorological', baseSeverity:1,
       color:'#FFD60A',
       events:[
@@ -333,6 +333,61 @@ window.DPH_DATA = (function(){
           profile:{severity:2,population:'4M residents',cascading:'Agricultural collapse'}
         }
       ]
+    },
+    cyclone: {
+      id:'cyclone', name:'Cyclone', icon:'🌀',
+      type:'Meteorological', baseSeverity:3,
+      color:'#48CAE4',
+      events:[
+        { id:'cy-mozambique', country:'Mozambique', region:'Beira Coast', lat:-19.8, lon:34.8, year:2019,
+          history:'Cyclone Idai brought destructive winds, storm surge and catastrophic flooding to southeast Africa.',
+          profile:{severity:3,population:'3M affected',cascading:'Storm surge + Flood'}
+        }
+      ]
+    },
+    blizzard: {
+      id:'blizzard', name:'Blizzard', icon:'❄',
+      type:'Meteorological', baseSeverity:2,
+      color:'#90E0EF',
+      events:[
+        { id:'bz-usa', country:'USA', region:'Great Lakes', lat:43.0, lon:-84.0, year:2022,
+          history:'A major lake-effect blizzard stranded travelers, closed roads and caused widespread power loss.',
+          profile:{severity:2,population:'1M affected',cascading:'Power outage + Cold exposure'}
+        }
+      ]
+    },
+    geomagnetic: {
+      id:'geomagnetic', name:'Geomagnetic Storm', icon:'✦',
+      type:'Space Weather', baseSeverity:2,
+      color:'#72EFDD',
+      events:[
+        { id:'gm-norway', country:'Norway', region:'Tromsø', lat:69.6, lon:18.9, year:2024,
+          history:'A severe solar storm expanded aurora activity and threatened satellite, radio and grid systems.',
+          profile:{severity:2,population:'Global infrastructure',cascading:'GPS + Grid disruption'}
+        }
+      ]
+    },
+    glacial: {
+      id:'glacial', name:'Glacial Collapse', icon:'🧊',
+      type:'Cryospheric', baseSeverity:3,
+      color:'#ADE8F4',
+      events:[
+        { id:'gc-iceland', country:'Iceland', region:'Vatnajökull', lat:64.4, lon:-16.8, year:2024,
+          history:'Rapid ice and slope failure can release destructive debris and floodwater with little warning.',
+          profile:{severity:3,population:'Downstream settlements',cascading:'Flash flood + Debris flow'}
+        }
+      ]
+    },
+    sandstorm: {
+      id:'sandstorm', name:'Sandstorm', icon:'🌫',
+      type:'Climatological', baseSeverity:2,
+      color:'#F4A261',
+      events:[
+        { id:'ss-algeria', country:'Algeria', region:'Sahara', lat:27.0, lon:2.0, year:2023,
+          history:'A dense Saharan dust storm cut visibility, disrupted aviation and degraded air quality across the region.',
+          profile:{severity:2,population:'Regional exposure',cascading:'Transport + Air quality'}
+        }
+      ]
     }
   };
 
@@ -407,6 +462,31 @@ window.DPH_DATA = (function(){
       pre:['Install water-saving fixtures','Plan graywater reuse','Diversify crops','Identify alternative water sources','Stock bottled water'],
       during:['Reduce water use 30-50%','Follow local restrictions','Capture rainwater','Prioritize drinking water','Don\'t waste on lawns'],
       post:['Gradually restore normal use','Inspect wells + pumps','Replant with drought-resistant species','Watch for water-borne illness','Document losses for aid']
+    },
+    cyclone:{
+      pre:['Track official cyclone warnings','Secure loose outdoor items','Stock water, food and medicines','Plan for storm surge','Know evacuation routes'],
+      during:['Shelter away from windows','Move to higher ground if ordered','Do not cross floodwater','Keep devices charged','Wait for the all-clear'],
+      post:['Avoid downed power lines','Use safe water only','Check for structural damage','Watch for renewed flooding','Report urgent hazards']
+    },
+    blizzard:{
+      pre:['Stock food, water and medication','Insulate pipes and protect heat sources','Charge devices and backup batteries','Tell someone your travel plan','Keep an emergency kit in the car'],
+      during:['Stay indoors if possible','Layer clothing and conserve heat','Avoid unnecessary travel','Vent generators outdoors only','Check on vulnerable neighbors safely'],
+      post:['Clear vents before using heaters','Avoid weakened roofs and ice','Drive only when authorities reopen roads','Treat frostbite gradually','Check power restoration updates']
+    },
+    geomagnetic:{
+      pre:['Keep backup power for essential devices','Save offline maps and contacts','Protect sensitive equipment','Monitor space-weather alerts','Plan for communications outages'],
+      during:['Limit nonessential grid use','Use battery devices sparingly','Expect GPS and radio disruption','Follow utility instructions','Keep emergency lighting ready'],
+      post:['Check devices for damage','Reset clocks and navigation systems','Report extended outages','Restock backup power','Review alert sources']
+    },
+    glacial:{
+      pre:['Learn downstream hazard zones','Monitor official ice and flood alerts','Map high-ground routes','Keep a ready evacuation kit','Avoid unstable ice and slopes'],
+      during:['Evacuate to high ground immediately','Move away from valleys and channels','Do not approach the collapse','Follow emergency route closures','Account for everyone in your group'],
+      post:['Avoid contaminated floodwater','Stay clear of unstable slopes','Wait for geotechnical clearance','Report blocked roads','Prepare for secondary floods']
+    },
+    sandstorm:{
+      pre:['Check air-quality and travel alerts','Keep windows and vents sealed','Stock masks and clean water','Protect outdoor equipment','Plan an indoor shelter room'],
+      during:['Stay indoors and close vents','Wear a well-fitting mask outside','Drive only if unavoidable','Use headlights and reduce speed','Protect eyes from blowing grit'],
+      post:['Replace dirty air filters','Clean dust from electronics','Check roads before traveling','Seek help for breathing trouble','Follow local air-quality guidance']
     }
   };
 

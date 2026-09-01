@@ -1071,6 +1071,101 @@ window.DPH_ANIM = (function(){
       drawParticles(ctx, s);
 
       drawSteps(ctx, w, h, s.step, 3, ['Dry Spell','Water Shortage','Reservoir Depleted']);
+    },
+
+    cyclone(ctx, w, h, s){
+      const intensity = s.intensity / 100;
+      const cx = w * .55, cy = h * .5;
+      const sky = ctx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#06152a'); sky.addColorStop(1, '#123b4b');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#06344a'; ctx.fillRect(0, h * .7, w, h * .3);
+      for(let i = 0; i < 80; i++){
+        const angle = i * .45 + s.t * .003;
+        const radius = 18 + (i / 80) * w * .42;
+        const x = cx + Math.cos(angle) * radius;
+        const y = cy + Math.sin(angle) * radius * .55;
+        ctx.fillStyle = `rgba(72,202,228,${(1 - i / 90) * intensity})`;
+        ctx.fillRect(x, y, 2, 2);
+      }
+      ctx.strokeStyle = `rgba(220,250,255,${.65 * intensity})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(cx, cy, 20 + Math.sin(s.t * .01) * 3, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#bdebf2'; ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.fill();
+      drawSteps(ctx, w, h, s.step, 4, ['Tropical Wave','Cyclone Forms','Landfall','Weakening']);
+    },
+
+    blizzard(ctx, w, h, s){
+      const intensity = s.intensity / 100;
+      const sky = ctx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#b9d7e8'); sky.addColorStop(1, '#53748b');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#eef8fb'; ctx.fillRect(0, h * .78, w, h * .22);
+      ctx.fillStyle = '#2b4352';
+      for(let x = 20; x < w; x += 55){
+        const bh = 30 + (x % 90);
+        ctx.fillRect(x, h * .78 - bh, 34, bh);
+        ctx.fillStyle = '#dcebf0'; ctx.fillRect(x + 7, h * .78 - bh + 10, 7, 7);
+        ctx.fillStyle = '#2b4352';
+      }
+      if(Math.random() < .9){
+        for(let i = 0; i < 5; i++) spawnParticle(s, {
+          x: Math.random() * w, y: -5, vx: -2 - Math.random() * 3, vy: 4 + Math.random() * 4,
+          life: 70, color: '#fff', size: 2 + Math.random() * 2, type: 'circle'
+        });
+      }
+      updateParticles(s, w, h); drawParticles(ctx, s);
+      drawSteps(ctx, w, h, s.step, 3, ['Snowfall','Whiteout','Shelter']);
+    },
+
+    geomagnetic(ctx, w, h, s){
+      const intensity = s.intensity / 100;
+      ctx.fillStyle = '#071225'; ctx.fillRect(0, 0, w, h);
+      for(let i = 0; i < 9; i++){
+        ctx.strokeStyle = `hsla(${155 + i * 12}, 90%, 70%, ${.18 + intensity * .08})`;
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(w * (i / 8), h * .05);
+        ctx.bezierCurveTo(w * .2, h * .4, w * .8, h * .45, w * (1 - i / 8), h * .9);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#142c3c'; ctx.fillRect(0, h * .83, w, h * .17);
+      ctx.fillStyle = '#6de7d0';
+      for(let i = 0; i < 8; i++) ctx.fillRect(24 + i * 42, h * .83 - 18 - (i % 3) * 12, 22, 18 + (i % 3) * 12);
+      drawSteps(ctx, w, h, s.step, 3, ['Solar Flare','Aurora Surge','Grid Risk']);
+    },
+
+    glacial(ctx, w, h, s){
+      const intensity = s.intensity / 100;
+      const sky = ctx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#9bd7ed'); sky.addColorStop(1, '#e7f8fb');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#5f9bb1'; ctx.beginPath();
+      ctx.moveTo(0, h); ctx.lineTo(w * .25, h * .35); ctx.lineTo(w * .46, h * .58); ctx.lineTo(w * .7, h * .18); ctx.lineTo(w, h * .5); ctx.lineTo(w, h); ctx.fill();
+      ctx.fillStyle = '#f4fdff'; ctx.beginPath();
+      ctx.moveTo(w * .25, h * .35); ctx.lineTo(w * .46, h * .58); ctx.lineTo(w * .7, h * .18); ctx.lineTo(w * .62, h * .5); ctx.lineTo(w * .46, h * .42); ctx.lineTo(w * .36, h * .55); ctx.fill();
+      const collapse = Math.min(1, (s.t * .002 + s.step * .18) % 1.2);
+      ctx.fillStyle = `rgba(90,180,215,${.55 + intensity * .35})`;
+      ctx.beginPath(); ctx.moveTo(w * .55, h * .48); ctx.lineTo(w * (.48 - collapse * .12), h * .7); ctx.lineTo(w * (.78 + collapse * .12), h); ctx.lineTo(w * .35, h); ctx.closePath(); ctx.fill();
+      drawSteps(ctx, w, h, s.step, 3, ['Crack','Collapse','Outwash Flood']);
+    },
+
+    sandstorm(ctx, w, h, s){
+      const intensity = s.intensity / 100;
+      const sky = ctx.createLinearGradient(0, 0, 0, h);
+      sky.addColorStop(0, '#9b633c'); sky.addColorStop(1, '#e0a563');
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#704222'; ctx.fillRect(0, h * .78, w, h * .22);
+      ctx.fillStyle = '#3a2519';
+      ctx.fillRect(w * .12, h * .55, 42, h * .23); ctx.fillRect(w * .2, h * .62, 58, h * .16);
+      if(Math.random() < .8){
+        for(let i = 0; i < 4; i++) spawnParticle(s, {
+          x: w + 10, y: Math.random() * h * .8, vx: -4 - Math.random() * 5, vy: (Math.random() - .5),
+          life: 80, color: `rgba(255,220,160,${.25 + intensity * .45})`, size: 3 + Math.random() * 6, type: 'circle'
+        });
+      }
+      updateParticles(s, w, h); drawParticles(ctx, s);
+      drawSteps(ctx, w, h, s.step, 3, ['Dust Rises','Visibility Drops','Shelter']);
     }
   };
 

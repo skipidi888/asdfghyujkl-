@@ -5,7 +5,7 @@
   const A = window.DPH_ANIM;
 
   // ===== State =====
-  let state = {
+  const state = {
     user: null, // {username, safe: false}
     activeModule: 'globe',
     focusedHazard: null, // hazard key
@@ -44,14 +44,80 @@
   // ===== Init Globe =====
   G.init('globeCanvas');
   G.onClickCallback(onMarkerClick);
+  G.onHover(onMarkerHover);
 
   // Helper to build full flat list of events
   function getAllEvents(){
     const all = [];
     Object.values(D.HAZARDS).forEach(h=>{
-      h.events.forEach(ev=>all.push({...ev, hazardId: h.id, color: h.color}));
+      h.events.forEach(ev=>all.push({
+        ...ev,
+        hazardId: h.id,
+        color: h.color,
+        icon: h.icon,
+        hazardName: h.name,
+        hazardType: h.type
+      }));
     });
     return all;
+  }
+
+  function onMarkerHover(ev, screenPos){
+    const tooltip = document.getElementById('globeTooltip');
+    if (!tooltip) return;
+    if (!ev || !screenPos) {
+      tooltip.classList.add('hidden');
+      return;
+    }
+
+    const h = D.HAZARDS[ev.hazardId] || {};
+    const color = ev.color || h.color || '#00E5FF';
+    const icon = ev.icon || h.icon || '⚠️';
+    const sev = ev.profile?.severity || 2;
+    const sevLabel = sev >= 3 ? 'CRITICAL / SEV 3' : (sev === 2 ? 'ELEVATED / SEV 2' : 'MONITOR / SEV 1');
+
+    tooltip.innerHTML = `
+      <div class="gt-glow-bar" style="background:${color};"></div>
+      <div class="gt-inner">
+        <div class="gt-head">
+          <span class="gt-icon" style="border-color:${color};box-shadow:0 0 12px ${color}55;">${icon}</span>
+          <div class="gt-meta">
+            <div class="gt-badge" style="color:${color};border-color:${color}44;">${escapeHtml(h.name || 'HAZARD')}</div>
+            <div class="gt-title">${escapeHtml(ev.country || '')} ${ev.region ? '— ' + escapeHtml(ev.region) : ''}</div>
+          </div>
+        </div>
+        <div class="gt-details">
+          ${ev.year ? `<span class="gt-pill">📅 ${ev.year}</span>` : ''}
+          ${ev.magnitude ? `<span class="gt-pill">⚡ Mag ${ev.magnitude}</span>` : ''}
+          <span class="gt-sev-pill sev-${sev}">${sevLabel}</span>
+        </div>
+        ${ev.profile?.cascading ? `<div class="gt-cascade"><b>Cascade:</b> ${escapeHtml(ev.profile.cascading)}</div>` : ''}
+        <div class="gt-hint">✦ Click pin to open action plan & simulation</div>
+      </div>
+    `;
+
+    // Position tooltip nicely relative to pin on screen
+    const offsetX = 18;
+    const offsetY = -40;
+    let posX = screenPos.x + offsetX;
+    let posY = screenPos.y + offsetY;
+
+    // Prevent overflowing screen boundaries
+    const stage = document.querySelector('.stage');
+    const stageWidth = stage ? stage.clientWidth : window.innerWidth;
+    const stageHeight = stage ? stage.clientHeight : window.innerHeight;
+
+    if (posX + 240 > stageWidth) {
+      posX = screenPos.x - 240 - offsetX;
+    }
+    if (posY + 140 > stageHeight) {
+      posY = stageHeight - 150;
+    }
+    if (posY < 20) posY = 20;
+
+    tooltip.style.left = `${Math.round(posX)}px`;
+    tooltip.style.top = `${Math.round(posY)}px`;
+    tooltip.classList.remove('hidden');
   }
 
   const FEATURED_EVENT_IDS = [
@@ -140,7 +206,7 @@
 
   function showHazardList(){
     const drawer = document.getElementById('drawerContent');
-    drawer.innerHTML = '<div class="welcome"><h2>All 14 Hazards</h2><p>Click marker on globe or pick from list below. Cards animate while visible.</p></div><div id="hazardList"></div>';
+    drawer.innerHTML = '<div class="welcome"><h2>All 19 Hazards</h2><p>Click marker on globe or pick from list below. Cards animate while visible.</p></div><div id="hazardList"></div>';
     const list = document.getElementById('hazardList');
     Object.values(D.HAZARDS).forEach(h=>{
       const item = document.createElement('div');
@@ -203,8 +269,9 @@
     slider.value = 60;
     document.getElementById('intensityVal').textContent = 60;
     slider.setAttribute('aria-valuenow', 60);
-    A.start(ev.hazardId, {intensity: parseInt(slider.value, 10)});
+    // Reveal the panel first, then wait for layout before measuring its canvas.
     populateHazardPanel(h, ev);
+    requestAnimationFrame(()=> A.start(ev.hazardId, {intensity: parseInt(slider.value, 10)}));
     populateDrawer(h, ev);
   }
 
@@ -331,10 +398,62 @@
     const toggleBtn = document.getElementById('drawerToggle');
     drawer.classList.toggle('collapsed');
     const collapsed = drawer.classList.contains('collapsed');
-    toggleBtn.textContent = collapsed ? '‹' : '›';
+    toggleBtn.textContent = collapsed ? '›' : '‹';
     toggleBtn.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     toggleBtn.setAttribute('aria-label', collapsed ? 'Expand drawer' : 'Collapse drawer');
   });
+
+  // ===== Settings =====
+  const settingsModal = document.getElementById('settingsModal');
+  const settings = {
+    rotate: document.getElementById('settingRotate'),
+    motion: document.getElementById('settingMotion'),
+    contrast: document.getElementById('settingContrast'),
+    coordinates: document.getElementById('settingCoordinates'),
+    focus: document.getElementById('settingFocus'),
+    compact: document.getElementById('settingCompact')
+  };
+  const savedSettings = JSON.parse(localStorage.getItem('dph_settings') || '{}');
+  settings.rotate.checked = savedSettings.rotate === true;
+  settings.motion.checked = savedSettings.motion !== false;
+  settings.contrast.checked = savedSettings.contrast === true;
+  settings.coordinates.checked = savedSettings.coordinates !== false;
+  settings.focus.checked = savedSettings.focus === true;
+  settings.compact.checked = savedSettings.compact === true;
+  document.documentElement.classList.toggle('high-contrast', settings.contrast.checked);
+  function applyViewSettings(values){
+    document.querySelector('.coord-readout').classList.toggle('settings-hidden', values.coordinates === false);
+    document.querySelector('.mission-rail').classList.toggle('settings-focus', values.focus === true);
+    document.getElementById('sideDrawer').classList.toggle('settings-compact', values.compact === true);
+    document.documentElement.classList.toggle('high-contrast', values.contrast === true);
+  }
+  applyViewSettings(savedSettings);
+  if(settings.rotate.checked && !document.getElementById('btnAutoSpin').classList.contains('active')){
+    document.getElementById('btnAutoSpin').click();
+  }
+  function saveSettings(){
+    const values = {rotate: settings.rotate.checked, motion: settings.motion.checked, contrast: settings.contrast.checked,
+      coordinates: settings.coordinates.checked, focus: settings.focus.checked, compact: settings.compact.checked};
+    localStorage.setItem('dph_settings', JSON.stringify(values));
+    applyViewSettings(values);
+    const rotateButton = document.getElementById('btnAutoSpin');
+    const rotateActive = rotateButton.classList.contains('active');
+    if(values.rotate !== rotateActive) rotateButton.click();
+    if(state.focusedHazard) A.setPlaying(state.focusedHazard, values.motion);
+  }
+  document.getElementById('settingsBtn').addEventListener('click', ()=> settingsModal.classList.remove('hidden'));
+  document.getElementById('settingsClose').addEventListener('click', ()=> settingsModal.classList.add('hidden'));
+  document.getElementById('settingsDone').addEventListener('click', ()=>{ saveSettings(); settingsModal.classList.add('hidden'); });
+  Object.values(settings).forEach(input=> input.addEventListener('change', ()=> applyViewSettings({
+    coordinates: settings.coordinates.checked, focus: settings.focus.checked, compact: settings.compact.checked,
+    contrast: settings.contrast.checked
+  })));
+  document.getElementById('settingsReset').addEventListener('click', ()=>{
+    settings.rotate.checked = false; settings.motion.checked = true; settings.contrast.checked = false;
+    settings.coordinates.checked = true; settings.focus.checked = false; settings.compact.checked = false;
+    saveSettings();
+  });
+  settingsModal.addEventListener('click', e=>{ if(e.target === settingsModal) settingsModal.classList.add('hidden'); });
 
   // ===== Global Search =====
   const search = document.getElementById('globalSearch');

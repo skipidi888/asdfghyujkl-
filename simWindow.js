@@ -35,7 +35,14 @@
       speed: parseFloat(el('swSpeed').value)
     });
     playing = true;
-    el('swPause').textContent = '⏸ Pause';
+    if (localStorage.getItem('dph_settings')) {
+      const settings = JSON.parse(localStorage.getItem('dph_settings'));
+      if (settings.motion === false) {
+        playing = false;
+        A.winSetPlaying(CID, false);
+      }
+    }
+    el('swPause').textContent = playing ? '⏸ Pause' : '▶ Play';
   }
 
   function close() {
